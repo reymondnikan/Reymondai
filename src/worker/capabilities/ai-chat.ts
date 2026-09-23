@@ -1,15 +1,11 @@
-﻿// AI Chat capability — base capability for v0.1.
-//
-// Subscribes to: chat.message.sent
-// Publishes:     chat.message.received
+﻿// AI Chat capability — uses the runtime AI registry.
 
 import { newId, now } from "../core/id";
-import { bus } from "../core/event-bus";
 import { audit } from "../core/audit";
 import { queryAll, run } from "../core/db";
 import type { Env } from "../core/db";
 import type { Message } from "../../shared/types";
-import { aiRouter } from "../adapters/ai-router";
+import { getAI, getEvents } from "../runtime";
 
 export interface ChatMessagePayload {
   conversation_id: string;
@@ -18,7 +14,6 @@ export interface ChatMessagePayload {
   model?: string;
 }
 
-// We capture env at request time via a module-level holder set by the worker.
 let _env: Env | null = null;
 export function setEnv(env: Env): void { _env = env; }
 export function getEnv(): Env | null { return _env; }
@@ -27,35 +22,38 @@ export const aiChatCapability = {
   manifest: {
     id: "ai-chat",
     name: "AI Chat",
-    version: "0.1.0",
+    version: "0.2.0",
     description: "Chat with AI through the Router",
     events_subscribed: ["chat.message.sent"],
     events_published: ["chat.message.received"],
   },
 
   register(): void {
-    bus.register("chat.message.sent", async (payload) => {
-      const p = payload as ChatMessagePayload;
-      await this.handle(p);
-    });
+    const events = getEvents();
+    if (!events) {
+      // Fallback: register via legacy bus on next tick
+      setTimeout(() => {
+        const e = getEvents();
+        if (e) e.subscribe("chat.message.sent", (m) => aiChatCapability.handle(m.payload as ChatMessagePayload));
+      }, 0);
+      return;
+    }
+    events.subscribe("chat.message.sent", (m) =>
+      aiChatCapability.handle(m.payload as ChatMessagePayload)
+    );
   },
 
   async handle(payload: ChatMessagePayload): Promise<void> {
-    const env = getEnv();
-    if (!env) {
-      console.error("ai-chat: env not set");
-      return;
-    }
+    const env = _env;
+    if (!env) return;
 
     const { conversation_id, content, provider, model } = payload;
 
     // 1. Store user message
-    const userMsgId = newId("msg");
     await run(
       env.DB,
-      `INSERT INTO messages (id, conversation_id, role, content, created_at)
-       VALUES (?, ?, 'user', ?, ?)`,
-      userMsgId,
+      "INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)",
+      newId("msg"),
       conversation_id,
       content,
       now()
@@ -64,29 +62,28 @@ export const aiChatCapability = {
     // 2. Load history
     const history = await queryAll<Message>(
       env.DB,
-      `SELECT role, content FROM messages 
-       WHERE conversation_id = ? 
-       ORDER BY created_at ASC LIMIT 40`,
+      "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT 40",
       conversation_id
     );
 
-    // 3. Route to AI
+    // 3. Call AI
     const started = now();
     let result: { content: string; provider: string; model: string };
     try {
-      result = await aiRouter.complete(env, {
-        messages: history.map((m) => ({ role: m.role, content: m.content })),
-        provider,
-        model,
-      });
+      const ai = getAI();
+      if (!ai) throw new Error("AI registry not ready");
+      result = await ai.complete(
+        {
+          messages: history.map((m) => ({ role: m.role, content: m.content })),
+          model,
+        },
+        provider
+      );
     } catch (err) {
-      console.error("ai-chat: AI call failed:", err);
-      // Store an error message so the UI sees something
+      console.error("ai-chat failed:", err);
       await run(
         env.DB,
-        `INSERT INTO messages 
-          (id, conversation_id, role, content, provider, created_at)
-         VALUES (?, ?, 'assistant', ?, 'error', ?)`,
+        "INSERT INTO messages (id, conversation_id, role, content, provider, created_at) VALUES (?, ?, 'assistant', ?, 'error', ?)",
         newId("msg"),
         conversation_id,
         `[AI error] ${err instanceof Error ? err.message : String(err)}`,
@@ -100,9 +97,7 @@ export const aiChatCapability = {
     const assistantId = newId("msg");
     await run(
       env.DB,
-      `INSERT INTO messages 
-        (id, conversation_id, role, content, provider, model, latency_ms, created_at)
-       VALUES (?, ?, 'assistant', ?, ?, ?, ?, ?)`,
+      "INSERT INTO messages (id, conversation_id, role, content, provider, model, latency_ms, created_at) VALUES (?, ?, 'assistant', ?, ?, ?, ?, ?)",
       assistantId,
       conversation_id,
       result.content,
@@ -112,15 +107,13 @@ export const aiChatCapability = {
       now()
     );
 
-    // 5. Bump conversation updated_at
     await run(
       env.DB,
-      `UPDATE conversations SET updated_at = ? WHERE id = ?`,
+      "UPDATE conversations SET updated_at = ? WHERE id = ?",
       now(),
       conversation_id
     );
 
-    // 6. Audit
     await audit(env, {
       actor: "owner",
       action: "chat.message",
@@ -129,12 +122,13 @@ export const aiChatCapability = {
       metadata: { provider: result.provider, model: result.model, latency_ms: latency },
     });
 
-    // 7. Publish event
-    await bus.publish(
-      env,
-      "chat.message.received",
-      { conversation_id, message_id: assistantId },
-      "ai-chat"
-    );
+    const events = getEvents();
+    if (events) {
+      await events.publish(
+        "chat.message.received",
+        { conversation_id, message_id: assistantId },
+        "ai-chat"
+      );
+    }
   },
 };

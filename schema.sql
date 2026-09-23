@@ -100,3 +100,76 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('ai.default_provider', '"workers-ai"'),
   ('ai.default_model', '"@cf/meta/llama-4-scout-17b-16e-instruct"'),
   ('system.version', '"0.1.0"');
+
+-- ============================================
+-- RAYMOND v0.2 — Auth, secrets, config
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  actor_id TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  revoked INTEGER NOT NULL DEFAULT 0,
+  user_agent TEXT,
+  ip TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
+
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id TEXT PRIMARY KEY,
+  actor_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  last_used_at INTEGER,
+  revoked INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
+
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id TEXT PRIMARY KEY,
+  actor_id TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_actor ON recovery_codes(actor_id);
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id TEXT PRIMARY KEY,
+  ip TEXT NOT NULL,
+  username TEXT,
+  success INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_secrets (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  iv TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);

@@ -9,6 +9,7 @@ interface Props {
   onNew: () => void;
   onDelete: (id: string) => void;
   onOpenDashboard: () => void;
+  onLogout: () => void;
   healthy: boolean | null;
 }
 
@@ -22,6 +23,13 @@ export function Sidebar(p: Props) {
             <span className="brand-dot" />
             <span>Raymond</span>
           </div>
+          <button
+            onClick={p.onLogout}
+            title="Logout"
+            style={{ color: "var(--text-dim)", fontSize: 16 }}
+          >
+            ⎋
+          </button>
         </div>
 
         <button className="new-chat-btn" onClick={p.onNew}>
@@ -30,7 +38,11 @@ export function Sidebar(p: Props) {
 
         <button
           className="new-chat-btn"
-          style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text)" }}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border)",
+            color: "var(--text)",
+          }}
           onClick={p.onOpenDashboard}
         >
           ⚙ Control panel
@@ -38,7 +50,14 @@ export function Sidebar(p: Props) {
 
         <div className="conv-list">
           {p.conversations.length === 0 && (
-            <div style={{ padding: 16, color: "var(--text-dim)", fontSize: 13, textAlign: "center" }}>
+            <div
+              style={{
+                padding: 16,
+                color: "var(--text-dim)",
+                fontSize: 13,
+                textAlign: "center",
+              }}
+            >
               No conversations yet
             </div>
           )}
@@ -51,7 +70,10 @@ export function Sidebar(p: Props) {
               <span className="conv-title">{c.title || "New chat"}</span>
               <button
                 className="conv-delete"
-                onClick={(e) => { e.stopPropagation(); p.onDelete(c.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  p.onDelete(c.id);
+                }}
                 title="Delete"
               >
                 ✕
@@ -62,10 +84,14 @@ export function Sidebar(p: Props) {
 
         <div className="sidebar-footer">
           <span>
-            <span className={`status-dot ${p.healthy ? "online" : "offline"}`} />
+            <span
+              className={`status-dot ${
+                p.healthy ? "online" : "offline"
+              }`}
+            />
             {p.healthy ? "Online" : p.healthy === false ? "Offline" : "..."}
           </span>
-          <span>v0.1</span>
+          <span>v0.2</span>
         </div>
       </aside>
     </>

@@ -4,14 +4,27 @@ import type { Conversation, Message } from "../../shared/types";
 
 const BASE = "/api";
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: () => void): void {
+  onUnauthorized = fn;
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
   });
+
+  if (res.status === 401) {
+    if (onUnauthorized) onUnauthorized();
+    throw new Error("Unauthorized");
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`${res.status}: ${text.slice(0, 200)}`);
@@ -23,12 +36,16 @@ export interface ProviderInfo {
   id: string;
   name: string;
   available: boolean;
-  default_model: string;
+  defaultModel: string;
+  models?: string[];
   description: string;
 }
 
 export const api = {
-  health: () => req<{ ok: boolean; app: string; env: string; time: number }>("/system/health"),
+  health: () =>
+    req<{ ok: boolean; app: string; env: string; time: number }>(
+      "/system/health"
+    ),
 
   listProviders: () => req<ProviderInfo[]>("/system/providers"),
 
@@ -40,7 +57,12 @@ export const api = {
   getMessages: (id: string) =>
     req<Message[]>(`/chat/conversations/${id}/messages`),
 
-  sendMessage: (id: string, content: string, provider?: string, model?: string) =>
+  sendMessage: (
+    id: string,
+    content: string,
+    provider?: string,
+    model?: string
+  ) =>
     req<{ ok: boolean }>(`/chat/conversations/${id}/messages`, {
       method: "POST",
       body: JSON.stringify({ content, provider, model }),
@@ -48,4 +70,7 @@ export const api = {
 
   deleteConversation: (id: string) =>
     req<{ ok: boolean }>(`/chat/conversations/${id}`, { method: "DELETE" }),
+
+  logout: () =>
+    req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 };
