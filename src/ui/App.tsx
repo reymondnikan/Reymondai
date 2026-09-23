@@ -7,38 +7,43 @@ import { Sidebar } from "./components/Sidebar";
 import { MessageList } from "./components/MessageList";
 import { Composer } from "./components/Composer";
 import { Dashboard } from "./components/Dashboard";
+import { applyTheme } from "./core/theme";
+import { appRegistry } from "./core/app-registry";
+import { registerApps } from "./apps/register";
 import type { Conversation, Message } from "../shared/types";
 import type { ProviderInfo } from "./lib/api";
 
-type View = "chat" | "dashboard" | "setup" | "login" | "loading";
+type AuthView = "loading" | "setup" | "login" | "app";
 
 export default function App() {
-  const [view, setView] = useState<View>("loading");
+  const [authView, setAuthView] = useState<AuthView>("loading");
 
-  // Check auth status on mount
   useEffect(() => {
+    applyTheme();
+    registerApps();
+
     (async () => {
       try {
         const status = await authApi.status();
         if (!status.initialized) {
-          setView("setup");
+          setAuthView("setup");
           return;
         }
         try {
           await authApi.me();
-          setView("chat");
+          setAuthView("app");
         } catch {
-          setView("login");
+          setAuthView("login");
         }
       } catch {
-        setView("login");
+        setAuthView("login");
       }
     })();
 
-    setUnauthorizedHandler(() => setView("login"));
+    setUnauthorizedHandler(() => setAuthView("login"));
   }, []);
 
-  if (view === "loading") {
+  if (authView === "loading") {
     return (
       <div className="auth-wrap">
         <div className="auth-card" style={{ textAlign: "center" }}>
@@ -52,18 +57,23 @@ export default function App() {
     );
   }
 
-  if (view === "setup") {
-    return <SetupScreen onComplete={() => setView("login")} />;
+  if (authView === "setup") {
+    return <SetupScreen onComplete={() => setAuthView("login")} />;
   }
 
-  if (view === "login") {
-    return <LoginScreen onComplete={() => setView("chat")} />;
+  if (authView === "login") {
+    return <LoginScreen onComplete={() => setAuthView("app")} />;
   }
 
-  return <MainApp onLogout={() => setView("login")} />;
+  return <MainApp onLogout={() => setAuthView("login")} />;
 }
 
+type Tab = "chat" | "messenger" | "dashboard" | "settings";
+
 function MainApp({ onLogout }: { onLogout: () => void }) {
+  const [tab, setTab] = useState<Tab>("chat");
+
+  // Chat state
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -71,7 +81,6 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
   const [selectedProvider, setSelectedProvider] = useState<string>("workers-ai");
   const [loading, setLoading] = useState(false);
   const [healthy, setHealthy] = useState<boolean | null>(null);
-  const [view, setView] = useState<"chat" | "dashboard">("chat");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -108,7 +117,6 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
     })();
   }, [activeId]);
 
-  // Poll while loading
   useEffect(() => {
     if (!loading || !activeId) return;
     const iv = window.setInterval(async () => {
@@ -133,7 +141,7 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
       setConversations((p) => [conv, ...p]);
       setActiveId(conv.id);
       setMessages([]);
-      setView("chat");
+      setTab("chat");
       setSidebarOpen(false);
     } catch (e) {
       console.error(e);
@@ -203,6 +211,9 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
 
   const activeConv = conversations.find((c) => c.id === activeId);
 
+  // Apps registered dynamically
+  const registeredApps = appRegistry.list();
+
   return (
     <div className="app">
       <Sidebar
@@ -212,23 +223,27 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
         onClose={() => setSidebarOpen(false)}
         onSelect={(id) => {
           setActiveId(id);
-          setView("chat");
+          setTab("chat");
           setSidebarOpen(false);
         }}
         onNew={newConversation}
         onDelete={deleteConversation}
         onOpenDashboard={() => {
-          setView("dashboard");
+          setTab("dashboard");
           setSidebarOpen(false);
         }}
         onLogout={doLogout}
         healthy={healthy}
+        currentTab={tab}
+        apps={registeredApps.map((a) => ({ id: a.id, name: a.name, icon: a.icon }))}
+        onSelectTab={(id) => {
+          setTab(id as Tab);
+          setSidebarOpen(false);
+        }}
       />
 
       <main className="chat">
-        {view === "dashboard" ? (
-          <Dashboard onBack={() => setView("chat")} />
-        ) : (
+        {tab === "chat" && (
           <>
             <header className="chat-header">
               <button
@@ -255,12 +270,40 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
                 </select>
               </div>
             </header>
-
             <MessageList messages={messages} loading={loading} />
-
             <Composer onSend={send} disabled={loading} />
           </>
         )}
+
+        {tab === "dashboard" && <Dashboard onBack={() => setTab("chat")} />}
+
+        {tab !== "chat" &&
+          tab !== "dashboard" &&
+          (() => {
+            const app = registeredApps.find((a) => a.id === tab);
+            if (!app) return null;
+            const Comp = app.component;
+            return (
+              <>
+                <header className="chat-header">
+                  <button
+                    className="menu-btn"
+                    onClick={() => setSidebarOpen(true)}
+                    title="Menu"
+                  >
+                    ☰
+                  </button>
+                  <div className="chat-title">
+                    <span style={{ marginRight: 8 }}>{app.icon}</span>
+                    {app.name}
+                  </div>
+                </header>
+                <div style={{ flex: 1, overflow: "hidden" }}>
+                  <Comp />
+                </div>
+              </>
+            );
+          })()}
       </main>
     </div>
   );

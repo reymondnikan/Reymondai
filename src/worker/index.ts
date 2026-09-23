@@ -8,17 +8,29 @@ import { aiChatCapability, setEnv } from "./capabilities/ai-chat";
 import { chatRoutes } from "./routes/chat";
 import { systemRoutes } from "./routes/system";
 import { authRoutes } from "./routes/auth";
+import { telegramRoutes } from "./routes/telegram";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
 
 type Bindings = Env;
 const app = new Hono<{ Bindings: Bindings }>();
 
-// CORS — allow credentials for cookie-based auth
+// CORS أ¢â‚¬â€‌ allow credentials for cookie-based auth
 app.use("*", cors({
   origin: (origin) => origin, // reflect origin
   credentials: true,
 }));
+
+// Disable caching for HTML/JS/CSS so updates show immediately
+app.use("*", async (c, next) => {
+  await next();
+  const path = new URL(c.req.url).pathname;
+  if (path === "/" || path.endsWith(".html") || path.endsWith(".js") || path.endsWith(".css")) {
+    c.res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    c.res.headers.set("Pragma", "no-cache");
+    c.res.headers.set("Expires", "0");
+  }
+});
 
 // Init runtime + set env per request
 app.use("*", async (c, next) => {
@@ -36,6 +48,7 @@ app.use("/api/*", requireAuth());
 // Protected routes
 app.route("/api/chat", chatRoutes);
 app.route("/api/system", systemRoutes);
+app.route("/api/telegram", telegramRoutes);
 app.get("/api", (c) => {
   return c.json({
     app: c.env.APP_NAME ?? "Raymond",

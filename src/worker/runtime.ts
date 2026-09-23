@@ -1,8 +1,13 @@
 ﻿// Runtime singleton for the current request.
-// Holds instances of adapters so routes/middleware can access them.
 
 import type { Env } from "./core/db";
-import type { StorageContract, AuthContract, SecretsContract, EventsContract, AIProvider } from "./core/contracts";
+import type {
+  StorageContract,
+  AuthContract,
+  SecretsContract,
+  EventsContract,
+  TelegramContract,
+} from "./core/contracts";
 import { D1Storage } from "./adapters/storage/d1";
 import { CloudflareSecrets } from "./adapters/secrets/cloudflare";
 import { DbEventBus } from "./adapters/events/db-bus";
@@ -11,6 +16,7 @@ import { AIRegistry } from "./adapters/ai/registry";
 import { WorkersAIProvider } from "./adapters/ai/workers-ai";
 import { OpenRouterProvider } from "./adapters/ai/openrouter";
 import { OllamaProvider } from "./adapters/ai/ollama";
+import { MockTelegram } from "./adapters/telegram/mock";
 
 interface Runtime {
   storage: StorageContract;
@@ -18,6 +24,7 @@ interface Runtime {
   events: EventsContract;
   auth: AuthContract;
   ai: AIRegistry;
+  telegram: TelegramContract;
 }
 
 let _runtime: Runtime | null = null;
@@ -37,7 +44,6 @@ export function initRuntime(env: Env): Runtime {
   );
 
   const events = new DbEventBus(storage);
-
   const auth = new D1Auth(storage, masterKey ?? "raymond-default-key-changeme");
 
   const ai = new AIRegistry();
@@ -45,27 +51,17 @@ export function initRuntime(env: Env): Runtime {
   ai.register(new OpenRouterProvider(env.OPENROUTER_API_KEY ?? null));
   ai.register(new OllamaProvider(env.OLLAMA_URL ?? null));
 
-  _runtime = { storage, secrets, events, auth, ai };
+  // Telegram: mock for now. Later: swap to mtcute/gramjs adapter.
+  const telegram: TelegramContract = new MockTelegram();
+
+  _runtime = { storage, secrets, events, auth, ai, telegram };
   _initialized = true;
   return _runtime;
 }
 
-export function getRuntime(): Runtime | null {
-  return _runtime;
-}
-
-export function getAuth(): AuthContract | null {
-  return _runtime?.auth ?? null;
-}
-
-export function getStorage(): StorageContract | null {
-  return _runtime?.storage ?? null;
-}
-
-export function getEvents(): EventsContract | null {
-  return _runtime?.events ?? null;
-}
-
-export function getAI(): AIRegistry | null {
-  return _runtime?.ai ?? null;
-}
+export function getRuntime(): Runtime | null { return _runtime; }
+export function getAuth(): AuthContract | null { return _runtime?.auth ?? null; }
+export function getStorage(): StorageContract | null { return _runtime?.storage ?? null; }
+export function getEvents(): EventsContract | null { return _runtime?.events ?? null; }
+export function getAI(): AIRegistry | null { return _runtime?.ai ?? null; }
+export function getTelegram(): TelegramContract | null { return _runtime?.telegram ?? null; }
