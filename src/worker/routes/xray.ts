@@ -1,0 +1,271 @@
+﻿// Xray control API — user management with quota + speed tracking.
+
+import { Hono } from "hono";
+import type { Env } from "../core/db";
+import { queryAll, queryFirst, run } from "../core/db";
+import { NodeClient } from "../adapters/ai/node-client";
+
+export const xrayRoutes = new Hono<{ Bindings: Env }>();
+
+const NODE_ID = "hetzner-nbg1-01";
+const SERVER_IP = "91.107.158.188";
+const SERVER_PORT = 443;
+const SERVER_SNI = "www.cloudflare.com";
+const SERVER_PUBLIC_KEY = "Gv_7ATLzr6pq2esXhVHoNlVHQvoxbCMQx-BW1vkDBzI";
+const SERVER_SHORT_ID = "ab07221358d8caae";
+
+function node(env: Env): NodeClient {
+  return new NodeClient(env, NODE_ID);
+}
+
+function randomHex(n: number): string {
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  return Array.from(b).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+// ============================================================
+// Server info
+// ============================================================
+xrayRoutes.get("/server", async (c) => {
+  return c.json({
+    ip: SERVER_IP,
+    port: SERVER_PORT,
+    sni: SERVER_SNI,
+    publicKey: SERVER_PUBLIC_KEY,
+    shortId: SERVER_SHORT_ID,
+  });
+});
+
+// ============================================================
+// Get all users with usage
+// ============================================================
+xrayRoutes.get("/users", async (c) => {
+  try {
+    // Read from D1
+    const users = await queryAll<{
+      id: string;
+      name: string;
+      uuid: string;
+      quota_gb: number;
+      speed_mbps: number;
+      used_bytes: number;
+      enabled: number;
+      created_at: number;
+      expires_at: number | null;
+    }>(
+      c.env.DB,
+      "SELECT id, name, uuid, quota_gb, speed_mbps, used_bytes, enabled, created_at, expires_at FROM xray_users ORDER BY created_at DESC"
+    );
+
+    return c.json({
+      ok: true,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        uuid: u.uuid,
+        quota_gb: u.quota_gb,
+        speed_mbps: u.speed_mbps,
+        used_bytes: u.used_bytes,
+        enabled: u.enabled === 1,
+        created_at: u.created_at,
+        expires_at: u.expires_at,
+      })),
+    });
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 500);
+  }
+});
+
+// ============================================================
+// Create a user
+// ============================================================
+xrayRoutes.post("/users", async (c) => {
+  const body = await c.req.json<{
+    name?: string;
+    quota_gb?: number;
+    speed_mbps?: number;
+  }>();
+  const name = body.name?.trim();
+  if (!name) return c.json({ ok: false, error: "name required" }, 400);
+
+  const quotaGb = Math.max(0, Math.floor(body.quota_gb ?? 0));
+  const speedMbps = Math.max(0, Math.floor(body.speed_mbps ?? 0));
+
+  // Check duplicate
+  const existing = await queryFirst<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM xray_users WHERE name = ? LIMIT 1",
+    name
+  );
+  if (existing) return c.json({ ok: false, error: "name already exists" }, 409);
+
+  try {
+    // Generate UUID via node
+    const uuidRes = await node(c.env).task<{ stdout: string }>("xray.uuid");
+    if (!uuidRes.ok || !uuidRes.output) {
+      return c.json({ ok: false, error: "could not generate uuid" }, 500);
+    }
+    const uuid = uuidRes.output.stdout.trim();
+    const id = "xu_" + randomHex(12);
+    const emailTag = `${name}@raymond`;
+    const now = Date.now();
+
+    // Insert into D1
+    await run(
+      c.env.DB,
+      `INSERT INTO xray_users 
+        (id, name, uuid, email_tag, quota_gb, speed_mbps, used_bytes, enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?)`,
+      id, name, uuid, emailTag, quotaGb, speedMbps, now, now
+    );
+
+    // Sync to VPS users.json
+    await syncUserToVps(c.env, name, uuid, true);
+
+    const link = buildVlessLink(name, uuid);
+
+    return c.json({
+      ok: true,
+      user: {
+        id,
+        name,
+        uuid,
+        quota_gb: quotaGb,
+        speed_mbps: speedMbps,
+        used_bytes: 0,
+        enabled: true,
+        created_at: now,
+      },
+      link,
+    });
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 500);
+  }
+});
+
+// ============================================================
+// Delete user
+// ============================================================
+xrayRoutes.delete("/users/:name", async (c) => {
+  const name = c.req.param("name");
+  try {
+    await run(c.env.DB, "DELETE FROM xray_users WHERE name = ?", name);
+    await syncUserToVps(c.env, name, "", false);
+    return c.json({ ok: true });
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 500);
+  }
+});
+
+// ============================================================
+// Get link
+// ============================================================
+xrayRoutes.get("/users/:name/link", async (c) => {
+  const name = c.req.param("name");
+  const user = await queryFirst<{ uuid: string }>(
+    c.env.DB,
+    "SELECT uuid FROM xray_users WHERE name = ? LIMIT 1",
+    name
+  );
+  if (!user) return c.json({ ok: false, error: "user not found" }, 404);
+  return c.json({ ok: true, link: buildVlessLink(name, user.uuid) });
+});
+
+// ============================================================
+// Sync stats from Xray
+// ============================================================
+xrayRoutes.post("/sync-stats", async (c) => {
+  try {
+    const statsRes = await node(c.env).task<{ stdout: string }>("xray.stats");
+    if (!statsRes.ok || !statsRes.output) {
+      return c.json({ ok: false, error: "stats fetch failed" }, 500);
+    }
+
+    const stats = JSON.parse(statsRes.output.stdout) as {
+      stat: Array<{ name: string; value: number }>;
+    };
+
+    // Aggregate per-user up+down
+    const perUser: Record<string, number> = {};
+    for (const s of stats.stat ?? []) {
+      const m = s.name.match(/^user>>>(.+)@raymond>>>traffic>>>(uplink|downlink)$/);
+      if (!m) continue;
+      const [, userName, direction] = m;
+      if (!perUser[userName]) perUser[userName] = 0;
+      perUser[userName] += s.value;
+    }
+
+    const now = Date.now();
+    let updated = 0;
+    for (const [name, bytes] of Object.entries(perUser)) {
+      const r = await run(
+        c.env.DB,
+        "UPDATE xray_users SET used_bytes = ?, last_sync_at = ?, updated_at = ? WHERE name = ?",
+        bytes, now, now, name
+      );
+      updated++;
+    }
+
+    return c.json({ ok: true, updated, users: Object.keys(perUser).length });
+  } catch (e) {
+    return c.json({ ok: false, error: (e as Error).message }, 500);
+  }
+});
+
+// ============================================================
+// Helpers
+// ============================================================
+async function syncUserToVps(
+  env: Env,
+  name: string,
+  uuid: string,
+  add: boolean
+): Promise<void> {
+  const cli = node(env);
+
+  // Get all users from D1
+  const allUsers = await queryAll<{ name: string; uuid: string }>(
+    env.DB,
+    "SELECT name, uuid FROM xray_users WHERE enabled = 1 ORDER BY created_at ASC"
+  );
+
+  // Write the entire users.json to VPS
+  const usersJson = JSON.stringify(
+    allUsers.map((u) => ({
+      name: u.name,
+      uuid: u.uuid,
+      enabled: true,
+      created_at: Date.now(),
+    })),
+    null,
+    2
+  );
+
+  // Store on VPS via task
+  const escaped = usersJson.replace(/'/g, "'\\''");
+  await cli.task(
+    "shell.exec",
+    { cmd: `printf '%s' '${escaped}' > /usr/local/etc/xray/users.json` },
+    15000
+  );
+
+  // Sync to config and restart
+  await cli.task("xray.sync", {}, 15000);
+  await cli.task("xray.restart", {}, 20000);
+}
+
+function buildVlessLink(name: string, uuid: string): string {
+  const params = new URLSearchParams({
+    encryption: "none",
+    flow: "xtls-rprx-vision",
+    security: "reality",
+    sni: SERVER_SNI,
+    fp: "chrome",
+    pbk: SERVER_PUBLIC_KEY,
+    sid: SERVER_SHORT_ID,
+    type: "tcp",
+    headerType: "none",
+  });
+  return `vless://${uuid}@${SERVER_IP}:${SERVER_PORT}?${params.toString()}#${encodeURIComponent(name)}`;
+}

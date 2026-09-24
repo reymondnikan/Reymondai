@@ -12,6 +12,7 @@ import { telegramRoutes } from "./routes/telegram";
 import { telegramWsRoutes } from "./routes/telegram-ws";
 import { nodeRoutes } from "./routes/node";
 import { nodeApiRoutes } from "./routes/node-api";
+import { xrayRoutes } from "./routes/xray";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
 
@@ -42,6 +43,7 @@ app.route("/api/chat", chatRoutes);
 app.route("/api/system", systemRoutes);
 app.route("/api/telegram", telegramRoutes);
 app.route("/api/nodes", nodeApiRoutes);
+app.route("/api/xray", xrayRoutes);
 
 app.get("/api", (c) => c.json({ app: c.env.APP_NAME ?? "Raymond", version: "0.5.0" }));
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));

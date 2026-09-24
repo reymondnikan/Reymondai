@@ -1,4 +1,4 @@
-﻿// Node management API — requires auth.
+// Node management API — requires auth.
 
 import { Hono } from "hono";
 import type { Env } from "../core/db";
@@ -97,8 +97,12 @@ nodeApiRoutes.post("/:id/task", async (c) => {
     "service.restart",
     "service.status",
     "xray.users.list",
+    "xray.sync",
+    "xray.stats",
+    "xray.restart",
     "ollama.list",
     "ollama.chat",
+    "shell.exec",
     "ping",
   ];
   if (!allowed.includes(body.task)) {

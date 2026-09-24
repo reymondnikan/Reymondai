@@ -1142,3 +1142,392 @@ input, textarea {
 .nodes-error {
   color: var(--danger);
 }
+
+/* ===== Xray App ===== */
+.xray-app {
+  padding: 24px;
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.xray-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.xray-header h2 {
+  font-size: 22px;
+}
+
+.xray-server-info {
+  display: flex;
+  gap: 8px;
+}
+
+.xray-server-badge {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: "Courier New", monospace;
+  color: var(--text-dim);
+}
+
+.xray-section {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.xray-section h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.xray-create-form {
+  display: flex;
+  gap: 8px;
+}
+
+.xray-create-form input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.xray-create-form input:focus {
+  border-color: var(--accent);
+}
+
+.xray-create-form button {
+  background: var(--accent);
+  color: white;
+  border-radius: 8px;
+  padding: 0 20px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.xray-create-form button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.xray-users-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.xray-user-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.xray-user-row:last-child {
+  border-bottom: none;
+}
+
+.xray-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.xray-user-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.xray-user-uuid {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: "Courier New", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xray-user-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.xray-btn-secondary,
+.xray-btn-danger {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.xray-btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.xray-btn-danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.xray-link-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.xray-link-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.xray-link-title {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.xray-link-close {
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.xray-link-text {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  word-break: break-all;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 12px;
+  user-select: all;
+}
+
+.xray-link-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.xray-link-actions button,
+.xray-qr-link {
+  flex: 1;
+  background: var(--accent);
+  color: white;
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  border: none;
+  transition: opacity .15s;
+}
+
+.xray-link-actions button:hover,
+.xray-qr-link:hover {
+  opacity: 0.9;
+}
+
+.xray-qr-link {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.xray-empty,
+.xray-loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.xray-error {
+  background: #ff4d6d22;
+  color: var(--danger);
+  border: 1px solid #ff4d6d44;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.xray-info p {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.xray-info code {
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* ===== Xray Header Actions ===== */
+.xray-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.xray-sync-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.xray-sync-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+.xray-sync-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* ===== Xray number inputs ===== */
+.xray-num-input {
+  width: 140px !important;
+  flex: 0 0 auto !important;
+}
+
+/* ===== User row with quota ===== */
+.xray-user-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.xray-user-row:last-child {
+  border-bottom: none;
+}
+
+.xray-user-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.xray-user-full {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #ff4d6d22;
+  color: var(--danger);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+}
+
+.xray-user-disabled {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #8a8a9922;
+  color: var(--text-dim);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+}
+
+.xray-quota-block {
+  margin-top: 10px;
+}
+
+.xray-quota-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: var(--text-dim);
+}
+
+.xray-quota-info strong {
+  color: var(--text);
+}
+
+.xray-quota-percent {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.xray-quota-bar {
+  height: 5px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.xray-quota-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width .3s, background .3s;
+}
+
+.xray-quota-fill.warn {
+  background: var(--warn);
+}
+
+.xray-quota-fill.full {
+  background: var(--danger);
+}
+
+.xray-user-speed {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.xray-user-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}

@@ -173,3 +173,24 @@ CREATE TABLE IF NOT EXISTS config (
   value TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+-- ============================================
+-- Xray users with quota and speed limits
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS xray_users (
+  id TEXT PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  uuid TEXT UNIQUE NOT NULL,
+  email_tag TEXT NOT NULL,
+  quota_gb INTEGER NOT NULL DEFAULT 0,
+  speed_mbps INTEGER NOT NULL DEFAULT 0,
+  used_bytes INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  last_sync_at INTEGER,
+  expires_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_xray_users_name ON xray_users(name);
