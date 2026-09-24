@@ -16,6 +16,7 @@ import { AIRegistry } from "./adapters/ai/registry";
 import { WorkersAIProvider } from "./adapters/ai/workers-ai";
 import { OpenRouterProvider } from "./adapters/ai/openrouter";
 import { OllamaProvider } from "./adapters/ai/ollama";
+import { NodeAIProvider } from "./adapters/ai/node-ai";
 import { MockTelegram } from "./adapters/telegram/mock";
 
 interface Runtime {
@@ -28,15 +29,13 @@ interface Runtime {
 }
 
 let _runtime: Runtime | null = null;
-let _initialized = false;
 
 export function initRuntime(env: Env): Runtime {
-  if (_initialized && _runtime) return _runtime;
+  if (_runtime) return _runtime;
 
   const storage = new D1Storage(env.DB);
 
-  const masterKey = (env as unknown as { RAYMOND_MASTER_KEY?: string })
-    .RAYMOND_MASTER_KEY;
+  const masterKey = env.RAYMOND_MASTER_KEY;
   const secrets = new CloudflareSecrets(
     env as unknown as Record<string, unknown>,
     storage,
@@ -47,15 +46,14 @@ export function initRuntime(env: Env): Runtime {
   const auth = new D1Auth(storage, masterKey ?? "raymond-default-key-changeme");
 
   const ai = new AIRegistry();
+  ai.register(new NodeAIProvider(env));
   ai.register(new WorkersAIProvider(env.AI));
   ai.register(new OpenRouterProvider(env.OPENROUTER_API_KEY ?? null));
   ai.register(new OllamaProvider(env.OLLAMA_URL ?? null));
 
-  // Telegram: mock for now. Later: swap to mtcute/gramjs adapter.
   const telegram: TelegramContract = new MockTelegram();
 
   _runtime = { storage, secrets, events, auth, ai, telegram };
-  _initialized = true;
   return _runtime;
 }
 

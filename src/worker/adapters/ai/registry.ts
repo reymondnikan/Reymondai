@@ -1,11 +1,9 @@
 ﻿// AI Registry — chooses which provider to call.
 //
-// Rules (in priority order):
-//   1. If input.model clearly belongs to a provider, use that provider.
-//   2. If input.provider is specified, use it.
-//   3. Otherwise, pick first available provider (fallback chain).
-//
-// Later: plug in task-based routing (code -> coder model, etc.)
+// Selection priority:
+//   1. explicit "provider" in the request (per-message override)
+//   2. config default (stored in D1 settings, key = "ai.default_provider")
+//   3. first available from: local-node → workers-ai → openrouter → ollama
 
 import type {
   AIProvider,
@@ -16,9 +14,14 @@ import type {
 
 export class AIRegistry {
   private providers = new Map<string, AIProvider>();
+  private defaultProviderId: string | null = null;
 
   register(p: AIProvider): void {
     this.providers.set(p.id, p);
+  }
+
+  setDefaultProvider(id: string | null): void {
+    this.defaultProviderId = id;
   }
 
   get(id: string): AIProvider | undefined {
@@ -50,16 +53,25 @@ export class AIRegistry {
     }
     if (available.length === 0) throw new Error("No AI providers available");
 
-    // Order: preferred first, then others
-    const order = preferredProvider
-      ? [
-          ...available.filter((p) => p.id === preferredProvider),
-          ...available.filter((p) => p.id !== preferredProvider),
-        ]
-      : available;
+    // Build priority order
+    const priority: string[] = [];
+    if (preferredProvider) priority.push(preferredProvider);
+    if (this.defaultProviderId && this.defaultProviderId !== preferredProvider) {
+      priority.push(this.defaultProviderId);
+    }
+    // Fallback chain
+    for (const id of ["local-node", "workers-ai", "openrouter", "ollama"]) {
+      if (!priority.includes(id)) priority.push(id);
+    }
+
+    const ordered: AIProvider[] = [];
+    for (const id of priority) {
+      const p = available.find((x) => x.id === id);
+      if (p) ordered.push(p);
+    }
 
     let lastErr: unknown;
-    for (const p of order) {
+    for (const p of ordered) {
       try {
         return await p.complete(input);
       } catch (e) {

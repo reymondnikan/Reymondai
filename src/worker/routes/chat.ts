@@ -2,49 +2,42 @@
 
 import { Hono } from "hono";
 import { newId, now } from "../core/id";
-import { bus } from "../core/event-bus";
 import { queryAll, run } from "../core/db";
 import type { Env } from "../core/db";
 import type { Conversation, Message } from "../../shared/types";
+import { aiChatCapability } from "../capabilities/ai-chat";
 
 export const chatRoutes = new Hono<{ Bindings: Env }>();
 
-// Create a new conversation
 chatRoutes.post("/conversations", async (c) => {
   const id = newId("conv");
   const title = "New chat";
   await run(
     c.env.DB,
-    `INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
-    id,
-    title,
-    now(),
-    now()
+    "INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+    id, title, now(), now()
   );
   return c.json({ id, title, created_at: now(), updated_at: now() });
 });
 
-// List conversations
 chatRoutes.get("/conversations", async (c) => {
   const rows = await queryAll<Conversation>(
     c.env.DB,
-    `SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 100`
+    "SELECT * FROM conversations ORDER BY updated_at DESC LIMIT 100"
   );
   return c.json(rows);
 });
 
-// Get messages of a conversation
 chatRoutes.get("/conversations/:id/messages", async (c) => {
   const id = c.req.param("id");
   const rows = await queryAll<Message>(
     c.env.DB,
-    `SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC`,
+    "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC",
     id
   );
   return c.json(rows);
 });
 
-// Send a message
 chatRoutes.post("/conversations/:id/messages", async (c) => {
   const conversationId = c.req.param("id");
   const body = await c.req.json<{ content: string; provider?: string; model?: string }>();
@@ -53,24 +46,25 @@ chatRoutes.post("/conversations/:id/messages", async (c) => {
     return c.json({ error: "content is required" }, 400);
   }
 
-  await bus.publish(
-    c.env,
-    "chat.message.sent",
-    {
+  console.log(`[chat] handling message for ${conversationId}, provider=${body.provider ?? "default"}`);
+
+  // Run the AI chat handler directly (no event bus hop → same isolate)
+  c.executionCtx.waitUntil(
+    aiChatCapability.handle({
       conversation_id: conversationId,
       content: body.content,
       provider: body.provider,
       model: body.model,
-    },
-    "api"
+    }).catch((err) => {
+      console.error("[chat] handler error:", err);
+    })
   );
 
   return c.json({ ok: true });
 });
 
-// Delete a conversation
 chatRoutes.delete("/conversations/:id", async (c) => {
   const id = c.req.param("id");
-  await run(c.env.DB, `DELETE FROM conversations WHERE id = ?`, id);
+  await run(c.env.DB, "DELETE FROM conversations WHERE id = ?", id);
   return c.json({ ok: true });
 });

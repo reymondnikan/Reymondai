@@ -7,6 +7,13 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
+  optimizeDeps: {
+    // Required for mtcute per official docs
+    exclude: ["@mtcute/wasm"],
+  },
+  define: {
+    global: "globalThis",
+  },
   server: {
     port: 5173,
   },

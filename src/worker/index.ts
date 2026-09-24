@@ -1,4 +1,4 @@
-// Raymond Worker entry point.
+﻿// Raymond Worker entry point.
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -9,73 +9,68 @@ import { chatRoutes } from "./routes/chat";
 import { systemRoutes } from "./routes/system";
 import { authRoutes } from "./routes/auth";
 import { telegramRoutes } from "./routes/telegram";
+import { telegramWsRoutes } from "./routes/telegram-ws";
+import { nodeRoutes } from "./routes/node";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
+
+export { TelegramProxy } from "./do/telegram-proxy";
+export { NodeAgent } from "./do/node-agent";
 
 type Bindings = Env;
 const app = new Hono<{ Bindings: Bindings }>();
 
-// CORS أ¢â‚¬â€‌ allow credentials for cookie-based auth
-app.use("*", cors({
-  origin: (origin) => origin, // reflect origin
-  credentials: true,
-}));
+app.use("*", cors({ origin: (origin) => origin, credentials: true }));
 
-// Disable caching for HTML/JS/CSS so updates show immediately
 app.use("*", async (c, next) => {
   await next();
   const path = new URL(c.req.url).pathname;
   if (path === "/" || path.endsWith(".html") || path.endsWith(".js") || path.endsWith(".css")) {
     c.res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-    c.res.headers.set("Pragma", "no-cache");
-    c.res.headers.set("Expires", "0");
   }
 });
 
-// Init runtime + set env per request
-app.use("*", async (c, next) => {
-  initRuntime(c.env);
-  setEnv(c.env);
-  await next();
-});
-
-// Public routes (no auth required)
+app.route("/tg", telegramWsRoutes);
+app.route("/node", nodeRoutes);
 app.route("/api/auth", authRoutes);
 
-// Everything under /api/* else is auth-gated
+// Auth middleware for /api/* (except /api/auth which is already mounted)
 app.use("/api/*", requireAuth());
 
-// Protected routes
 app.route("/api/chat", chatRoutes);
 app.route("/api/system", systemRoutes);
 app.route("/api/telegram", telegramRoutes);
-app.get("/api", (c) => {
-  return c.json({
-    app: c.env.APP_NAME ?? "Raymond",
-    version: "0.2.0",
-  });
-});
 
+app.get("/api", (c) => c.json({ app: c.env.APP_NAME ?? "Raymond", version: "0.5.0" }));
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+app.all("*", async (c) => c.env.ASSETS.fetch(c.req.raw));
+
+// ===== BOOTSTRAP =====
+// Critical: init runtime FIRST, then register capabilities.
 
 let bootstrapped = false;
-async function bootstrap(env: Env): Promise<void> {
+
+function bootstrap(env: Env, ctx: ExecutionContext): void {
   if (bootstrapped) return;
   bootstrapped = true;
+
+  console.log("[bootstrap] initializing runtime");
+  initRuntime(env);
+  setEnv(env);
+
+  console.log("[bootstrap] registering capabilities");
   registry.register(aiChatCapability.manifest);
   aiChatCapability.register();
-  try { await registry.syncToDb(env); } catch (err) { console.error("Registry sync failed:", err); }
-}
+  console.log("[bootstrap] ai-chat registered");
 
-app.all("*", async (c) => {
-  return c.env.ASSETS.fetch(c.req.raw);
-});
+  ctx.waitUntil(
+    registry.syncToDb(env).catch((err) => console.error("Registry sync failed:", err))
+  );
+}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    await bootstrap(env);
-    initRuntime(env);
-    setEnv(env);
+    bootstrap(env, ctx);
     return app.fetch(request, env, ctx);
   },
 } satisfies ExportedHandler<Env>;

@@ -4,8 +4,14 @@ export interface Env {
   DB: D1Database;
   AI: Ai;
   ASSETS: Fetcher;
+  TELEGRAM_PROXY: DurableObjectNamespace;
+  NODE_AGENT: DurableObjectNamespace;
   ENVIRONMENT: string;
   APP_NAME: string;
+  OPENROUTER_API_KEY?: string;
+  OLLAMA_URL?: string;
+  RAYMOND_MASTER_KEY?: string;
+  NODE_SECRET?: string;
 }
 
 export async function queryFirst<T = unknown>(
@@ -24,7 +30,7 @@ export async function queryAll<T = unknown>(
 ): Promise<T[]> {
   const stmt = db.prepare(sql).bind(...params);
   const result = await stmt.all<T>();
-  return result.results ?? [];
+  return (result.results ?? []) as T[];
 }
 
 export async function run(

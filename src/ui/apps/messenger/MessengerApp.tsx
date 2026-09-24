@@ -1,24 +1,37 @@
 ﻿import { useEffect, useState, useCallback } from "react";
-import { messengerApi, type TgAccount, type TgChat, type TgMessage } from "./api";
+import { tgManager, type TgSessionInfo } from "../../lib/telegram/client";
+import { TgLoginScreen } from "./TgLoginScreen";
+import {
+  loadRealChats,
+  loadRealMessages,
+  sendRealMessage,
+  type TgChatReal,
+  type TgMessageReal,
+} from "./real-chats";
 
 export function MessengerApp() {
-  const [accounts, setAccounts] = useState<TgAccount[]>([]);
+  const [accounts, setAccounts] = useState<TgSessionInfo[]>([]);
   const [activeAccount, setActiveAccount] = useState<string | null>(null);
-  const [chats, setChats] = useState<TgChat[]>([]);
+  const [chats, setChats] = useState<TgChatReal[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [messages, setMessages] = useState<TgMessage[]>([]);
+  const [messages, setMessages] = useState<TgMessageReal[]>([]);
   const [draft, setDraft] = useState("");
   const [showAccounts, setShowAccounts] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Load accounts
+  // Restore sessions on mount
   useEffect(() => {
     (async () => {
       try {
-        const list = await messengerApi.listAccounts();
-        setAccounts(list);
-        if (list.length > 0) setActiveAccount(list[0].id);
+        const restored = await tgManager.restoreAll();
+        setAccounts(restored);
+        if (restored.length > 0) setActiveAccount(restored[0].id);
+        else setShowLogin(true);
       } catch (e) {
-        console.error(e);
+        console.error("restoreAll failed:", e);
+        setShowLogin(true);
       }
     })();
   }, []);
@@ -26,13 +39,19 @@ export function MessengerApp() {
   // Load chats when account changes
   useEffect(() => {
     if (!activeAccount) return;
+    setLoadingChats(true);
+    setChats([]);
+    setActiveChat(null);
+    setMessages([]);
     (async () => {
       try {
-        const list = await messengerApi.listChats(activeAccount);
+        const list = await loadRealChats(activeAccount);
         setChats(list);
         if (list.length > 0) setActiveChat(list[0].id);
       } catch (e) {
-        console.error(e);
+        console.error("loadRealChats failed:", e);
+      } finally {
+        setLoadingChats(false);
       }
     })();
   }, [activeAccount]);
@@ -40,12 +59,15 @@ export function MessengerApp() {
   // Load messages when chat changes
   useEffect(() => {
     if (!activeAccount || !activeChat) return;
+    setLoadingMessages(true);
     (async () => {
       try {
-        const list = await messengerApi.listMessages(activeAccount, activeChat);
+        const list = await loadRealMessages(activeAccount, activeChat);
         setMessages(list);
       } catch (e) {
-        console.error(e);
+        console.error("loadRealMessages failed:", e);
+      } finally {
+        setLoadingMessages(false);
       }
     })();
   }, [activeAccount, activeChat]);
@@ -56,31 +78,57 @@ export function MessengerApp() {
     setDraft("");
 
     // Optimistic
-    const temp: TgMessage = {
+    const temp: TgMessageReal = {
       id: "temp_" + Date.now(),
-      chatId: activeChat,
-      accountId: activeAccount,
-      senderId: "me",
-      senderName: "You",
       text,
       date: Date.now(),
       outgoing: true,
+      senderName: "You",
     };
     setMessages((p) => [...p, temp]);
 
     try {
-      const real = await messengerApi.sendMessage(activeAccount, activeChat, text);
-      setMessages((p) => p.map((m) => (m.id === temp.id ? real : m)));
+      await sendRealMessage(activeAccount, activeChat, text);
+      // Reload messages to get the real one
+      const refreshed = await loadRealMessages(activeAccount, activeChat);
+      setMessages(refreshed);
     } catch (e) {
-      console.error(e);
+      console.error("sendRealMessage failed:", e);
     }
   }, [activeAccount, activeChat, draft]);
+
+  const handleLoginComplete = (info: TgSessionInfo) => {
+    setAccounts((p) => [...p, info]);
+    setActiveAccount(info.id);
+    setShowLogin(false);
+  };
+
+  const logoutAccount = async (id: string) => {
+    await tgManager.logout(id);
+    const remaining = accounts.filter((a) => a.id !== id);
+    setAccounts(remaining);
+    if (activeAccount === id) {
+      setActiveAccount(remaining[0]?.id ?? null);
+      setChats([]);
+      setMessages([]);
+    }
+    setShowAccounts(false);
+  };
+
+  if (showLogin) {
+    return (
+      <TgLoginScreen
+        onComplete={handleLoginComplete}
+        onCancel={() => setShowLogin(false)}
+      />
+    );
+  }
 
   const activeChatObj = chats.find((c) => c.id === activeChat);
   const activeAccountObj = accounts.find((a) => a.id === activeAccount);
 
   return (
-    <div className="messenger">
+    <div className={`messenger ${activeChat ? "has-active-chat" : ""}`}>
       {/* Chats column */}
       <div className="messenger-chats">
         <div className="messenger-chats-header">
@@ -103,7 +151,9 @@ export function MessengerApp() {
               {accounts.map((a) => (
                 <div
                   key={a.id}
-                  className={`messenger-account-item ${a.id === activeAccount ? "active" : ""}`}
+                  className={`messenger-account-item ${
+                    a.id === activeAccount ? "active" : ""
+                  }`}
                   onClick={() => {
                     setActiveAccount(a.id);
                     setShowAccounts(false);
@@ -120,13 +170,24 @@ export function MessengerApp() {
                       {a.phone}
                     </div>
                   </div>
+                  <button
+                    className="conv-delete"
+                    style={{ opacity: 1 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      logoutAccount(a.id);
+                    }}
+                    title="Logout"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
               <div
                 className="messenger-account-item add"
                 onClick={() => {
                   setShowAccounts(false);
-                  alert("Add account — coming soon (needs MTProto)");
+                  setShowLogin(true);
                 }}
               >
                 <span className="messenger-account-avatar">+</span>
@@ -137,25 +198,40 @@ export function MessengerApp() {
         </div>
 
         <div className="messenger-chat-list">
-          {chats.length === 0 && (
+          {loadingChats && (
+            <div className="messenger-empty">Loading chats…</div>
+          )}
+          {!loadingChats && chats.length === 0 && (
             <div className="messenger-empty">No chats</div>
           )}
           {chats.map((c) => (
             <div
               key={c.id}
-              className={`messenger-chat-item ${c.id === activeChat ? "active" : ""}`}
+              className={`messenger-chat-item ${
+                c.id === activeChat ? "active" : ""
+              }`}
               onClick={() => setActiveChat(c.id)}
             >
               <div className="messenger-chat-avatar">
-                {c.type === "channel" ? "📢" : c.type === "group" ? "👥" : c.type === "bot" ? "🤖" : "👤"}
+                {c.type === "channel"
+                  ? "📢"
+                  : c.type === "group"
+                  ? "👥"
+                  : c.type === "bot"
+                  ? "🤖"
+                  : "👤"}
               </div>
               <div className="messenger-chat-info">
                 <div className="messenger-chat-title">
-                  {c.pinned && <span style={{ color: "var(--accent)", fontSize: 10 }}>📌 </span>}
+                  {c.pinned && (
+                    <span style={{ color: "var(--accent)", fontSize: 10 }}>
+                      📌{" "}
+                    </span>
+                  )}
                   {c.title}
                 </div>
                 <div className="messenger-chat-preview">
-                  {c.lastMessagePreview ?? "—"}
+                  {c.lastMessagePreview || "—"}
                 </div>
               </div>
               <div className="messenger-chat-meta">
@@ -176,7 +252,18 @@ export function MessengerApp() {
         {activeChatObj ? (
           <>
             <div className="messenger-view-header">
-              <div className="messenger-chat-avatar" style={{ marginRight: 10 }}>
+              <button
+                className="menu-btn"
+                style={{ marginRight: 8 }}
+                onClick={() => setActiveChat(null)}
+                title="Back"
+              >
+                ←
+              </button>
+              <div
+                className="messenger-chat-avatar"
+                style={{ marginRight: 10 }}
+              >
                 {activeChatObj.type === "channel"
                   ? "📢"
                   : activeChatObj.type === "group"
@@ -189,19 +276,28 @@ export function MessengerApp() {
                 <div style={{ fontWeight: 600 }}>{activeChatObj.title}</div>
                 <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
                   {activeChatObj.type}
-                  {activeChatObj.username ? ` · ${activeChatObj.username}` : ""}
                 </div>
               </div>
             </div>
 
             <div className="messenger-messages">
+              {loadingMessages && (
+                <div className="messenger-empty">Loading messages…</div>
+              )}
+              {!loadingMessages && messages.length === 0 && (
+                <div className="messenger-empty">No messages yet</div>
+              )}
               {messages.map((m) => (
                 <div
                   key={m.id}
-                  className={`messenger-msg ${m.outgoing ? "outgoing" : "incoming"}`}
+                  className={`messenger-msg ${
+                    m.outgoing ? "outgoing" : "incoming"
+                  }`}
                 >
                   <div className="messenger-msg-text">{m.text}</div>
-                  <div className="messenger-msg-time">{formatTime(m.date)}</div>
+                  <div className="messenger-msg-time">
+                    {formatTime(m.date)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -236,6 +332,7 @@ export function MessengerApp() {
 }
 
 function formatTime(ts: number): string {
+  if (!ts) return "";
   const d = new Date(ts);
   const now = new Date();
   const sameDay =

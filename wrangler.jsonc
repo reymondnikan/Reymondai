@@ -23,6 +23,16 @@
       "migrations_dir": "migrations"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "TELEGRAM_PROXY", "class_name": "TelegramProxy" },
+      { "name": "NODE_AGENT", "class_name": "NodeAgent" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["TelegramProxy"] },
+    { "tag": "v2", "new_sqlite_classes": ["NodeAgent"] }
+  ],
   "vars": {
     "ENVIRONMENT": "production",
     "APP_NAME": "Raymond"
