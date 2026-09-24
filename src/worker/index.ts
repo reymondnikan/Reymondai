@@ -1,4 +1,4 @@
-﻿// Raymond Worker entry point.
+// Raymond Worker entry point.
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -11,6 +11,7 @@ import { authRoutes } from "./routes/auth";
 import { telegramRoutes } from "./routes/telegram";
 import { telegramWsRoutes } from "./routes/telegram-ws";
 import { nodeRoutes } from "./routes/node";
+import { nodeApiRoutes } from "./routes/node-api";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
 
@@ -40,6 +41,7 @@ app.use("/api/*", requireAuth());
 app.route("/api/chat", chatRoutes);
 app.route("/api/system", systemRoutes);
 app.route("/api/telegram", telegramRoutes);
+app.route("/api/nodes", nodeApiRoutes);
 
 app.get("/api", (c) => c.json({ app: c.env.APP_NAME ?? "Raymond", version: "0.5.0" }));
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
