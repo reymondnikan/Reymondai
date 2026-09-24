@@ -1,4 +1,6 @@
-// Xray control API — with quota, speed, expiration, and public tokens.
+﻿import fs from "node:fs";
+
+const content = `// Xray control API — with quota, speed, expiration, and public tokens.
 
 import { Hono } from "hono";
 import type { Env } from "../core/db";
@@ -218,3 +220,7 @@ function buildVlessLink(name, uuid) {
   });
   return "vless://" + uuid + "@" + SERVER_IP + ":" + SERVER_PORT + "?" + params.toString() + "#" + encodeURIComponent(name);
 }
+`;
+
+fs.writeFileSync("src/worker/routes/xray.ts", content, "utf-8");
+console.log("OK", content.length);

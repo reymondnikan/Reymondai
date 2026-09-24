@@ -17,13 +17,14 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/recover",
   "/api/auth/status",
+  "/api/xray/sub",
+  "/api/xray/public/usage",
 ];
 
 export function requireAuth() {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
     const path = new URL(c.req.url).pathname;
 
-    // Public endpoints
     if (PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"))) {
       return await next();
     }
@@ -31,13 +32,11 @@ export function requireAuth() {
     const auth = getAuth();
     if (!auth) return c.json({ error: "Server not ready" }, 503);
 
-    // 1. Try cookie session
     let token: string | undefined;
     const cookieHeader = c.req.header("cookie") ?? "";
     const cookies = parseCookies(cookieHeader);
     if (cookies["raymond_session"]) token = cookies["raymond_session"];
 
-    // 2. Try Authorization header
     if (!token) {
       const authz = c.req.header("authorization") ?? "";
       if (authz.startsWith("Bearer ")) token = authz.slice(7);
@@ -45,7 +44,6 @@ export function requireAuth() {
 
     if (!token) return c.json({ error: "Unauthorized" }, 401);
 
-    // 3. Verify (session or API token)
     const actor =
       (await auth.verifySession(token)) ?? (await auth.verifyApiToken(token));
 
