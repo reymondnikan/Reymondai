@@ -20,6 +20,7 @@ export function mainMenuKeyboard(
 ): { inline_keyboard: InlineKeyboardButton[][] } {
   const rows: InlineKeyboardButton[][] = [
     [{ text: "🛒 خرید اکانت", callback_data: "buy" }],
+    [{ text: "🎁 تست رایگان", callback_data: "trial_free" }],
     [{ text: "📦 اکانت‌های من", callback_data: "my_accounts" }],
     [{ text: "❓ راهنما", callback_data: "help" }],
     [{ text: "💬 پشتیبانی", callback_data: "support" }],
