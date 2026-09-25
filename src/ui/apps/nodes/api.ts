@@ -1,10 +1,11 @@
-﻿// Node Manager API client.
+// Node Manager API client.
 
 const BASE = "/api/nodes";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const cleanPath = path === "/" || path === "" ? "" : path;
-  const res = await fetch(`${BASE}${cleanPath}`, {
+  const url = cleanPath.startsWith("/api/") ? cleanPath : BASE + cleanPath;
+  const res = await fetch(url, {
     ...init,
     credentials: "include",
     headers: {
@@ -48,6 +49,37 @@ export interface ServiceStates {
   services: Record<string, string>;
 }
 
+
+
+export interface NodeMetrics {
+  cpu_pct: number;
+  ram_total_mb: number;
+  ram_used_mb: number;
+  ram_free_mb: number;
+  ram_cached_mb: number;
+  ram_pct: number;
+  disk_total_mb: number;
+  disk_used_mb: number;
+  disk_pct: number;
+  load_1m: number;
+  load_5m: number;
+  load_15m: number;
+  uptime_sec: number;
+  net_rx_bytes: number;
+  net_tx_bytes: number;
+  process_count: number;
+}
+
+export interface NodeMetricsResult {
+  id: string;
+  display_name: string;
+  flag: string;
+  ip: string;
+  ok: boolean;
+  metrics: NodeMetrics | null;
+  error: string | null;
+}
+
 export const nodesApi = {
   list: () => req<NodeListItem[]>(""),
 
@@ -73,4 +105,10 @@ export const nodesApi = {
 
   serviceStatus: (id: string, service: string) =>
     req<TaskResult<{ stdout: string }>>(`/${id}/services/${service}/status`),
+  
+  getMetrics: (id: string) =>
+    req<{ ok: boolean; metrics: NodeMetrics }>(`/api/nodes-crud/${id}/metrics`),
+  
+  getAllMetrics: () =>
+    req<{ ok: boolean; nodes: NodeMetricsResult[] }>("/api/nodes-crud/metrics/all"),
 };
