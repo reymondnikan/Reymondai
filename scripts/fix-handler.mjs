@@ -1,4 +1,8 @@
-// Telegram bot main handler.
+import fs from "node:fs";
+
+// We don't need escaping since we're writing a TypeScript file with regular strings
+
+const content = `// Telegram bot main handler.
 
 import type { Env } from "../core/db";
 import { queryAll, queryFirst, run } from "../core/db";
@@ -148,16 +152,16 @@ async function handleMessage(
   if (text === "/start" || text === "/menu") {
     await setUserState(env, String(from.id), "idle");
     const welcome =
-      "<b>" + settings.shop_name + "</b>\n" +
-      settings.shop_description + "\n\n" +
-      "سلام <b>" + escapeHtml(from.first_name) + "</b> 👋\n\n" +
+      "<b>" + settings.shop_name + "</b>\\n" +
+      settings.shop_description + "\\n\\n" +
+      "سلام <b>" + escapeHtml(from.first_name) + "</b> 👋\\n\\n" +
       "از منوی زیر انتخاب کنید:";
     await bot.sendMessage(msg.chat.id, welcome, { reply_markup: mainMenuKeyboard(isAdmin) });
     return;
   }
 
   if (text === "/admin" && isAdmin) {
-    await bot.sendMessage(msg.chat.id, "🔧 <b>پنل ادمین</b>\n\nانتخاب کنید:", {
+    await bot.sendMessage(msg.chat.id, "🔧 <b>پنل ادمین</b>\\n\\nانتخاب کنید:", {
       reply_markup: adminMenuKeyboard(),
     });
     return;
@@ -191,8 +195,8 @@ async function handleCallback(
     if (data === "back_main") {
       await setUserState(env, String(from.id), "idle");
       const welcome =
-        "<b>" + settings.shop_name + "</b>\n\n" +
-        "سلام <b>" + escapeHtml(from.first_name) + "</b> 👋\n\n" +
+        "<b>" + settings.shop_name + "</b>\\n\\n" +
+        "سلام <b>" + escapeHtml(from.first_name) + "</b> 👋\\n\\n" +
         "از منوی زیر انتخاب کنید:";
       await bot.editMessageText(chatId, messageId, welcome, { reply_markup: mainMenuKeyboard(isAdmin) });
       await bot.answerCallbackQuery(cb.id);
@@ -209,7 +213,7 @@ async function handleCallback(
         await bot.answerCallbackQuery(cb.id);
         return;
       }
-      await bot.editMessageText(chatId, messageId, "🛒 <b>پلن‌های موجود</b>\n\nیکی رو انتخاب کن:", { reply_markup: productsKeyboard(products) });
+      await bot.editMessageText(chatId, messageId, "🛒 <b>پلن‌های موجود</b>\\n\\nیکی رو انتخاب کن:", { reply_markup: productsKeyboard(products) });
       await bot.answerCallbackQuery(cb.id);
       return;
     }
@@ -226,12 +230,12 @@ async function handleCallback(
         return;
       }
       const text =
-        "📦 <b>" + escapeHtml(product.name) + "</b>\n\n" +
-        "📊 حجم: <b>" + product.quota_gb + " GB</b>\n" +
-        "⚡ سرعت: <b>" + (product.speed_mbps > 0 ? product.speed_mbps + " Mbps" : "بی‌نهایت") + "</b>\n" +
-        "📅 مدت: <b>" + product.duration_days + " روز</b>\n" +
-        "💰 قیمت: <b>" + formatPrice(product.price_toman) + "</b>\n" +
-        (product.description ? "\n" + escapeHtml(product.description) + "\n" : "");
+        "📦 <b>" + escapeHtml(product.name) + "</b>\\n\\n" +
+        "📊 حجم: <b>" + product.quota_gb + " GB</b>\\n" +
+        "⚡ سرعت: <b>" + (product.speed_mbps > 0 ? product.speed_mbps + " Mbps" : "بی‌نهایت") + "</b>\\n" +
+        "📅 مدت: <b>" + product.duration_days + " روز</b>\\n" +
+        "💰 قیمت: <b>" + formatPrice(product.price_toman) + "</b>\\n" +
+        (product.description ? "\\n" + escapeHtml(product.description) + "\\n" : "");
       await bot.editMessageText(chatId, messageId, text, { reply_markup: productDetailKeyboard(productId) });
       await bot.answerCallbackQuery(cb.id);
       return;
@@ -250,10 +254,10 @@ async function handleCallback(
       }
       await setUserState(env, String(from.id), "awaiting_receipt", { product_id: product.id, product_name: product.name });
       const text =
-        "💳 <b>پرداخت</b>\n\n" +
-        "مبلغ <b>" + formatPrice(product.price_toman) + "</b> رو به کارت زیر واریز کن:\n\n" +
-        "💳 <b>" + settings.payment_card + "</b>\n" +
-        "👤 به نام: <b>" + settings.payment_holder + "</b>\n\n" +
+        "💳 <b>پرداخت</b>\\n\\n" +
+        "مبلغ <b>" + formatPrice(product.price_toman) + "</b> رو به کارت زیر واریز کن:\\n\\n" +
+        "💳 <b>" + settings.payment_card + "</b>\\n" +
+        "👤 به نام: <b>" + settings.payment_holder + "</b>\\n\\n" +
         "بعد از واریز، <b>عکس فیش</b> رو همین‌جا بفرست 📷";
       await bot.editMessageText(chatId, messageId, text, { reply_markup: cancelKeyboard() });
       await bot.answerCallbackQuery(cb.id);
@@ -271,15 +275,15 @@ async function handleCallback(
         await bot.answerCallbackQuery(cb.id);
         return;
       }
-      let text = "📦 <b>اکانت‌های شما</b>\n\n";
+      let text = "📦 <b>اکانت‌های شما</b>\\n\\n";
       for (const o of orders) {
         const status = o.status === "completed" ? "✅ فعال" : o.status === "pending_approval" ? "⏳ در انتظار تایید" : o.status === "rejected" ? "❌ رد شده" : "⏳";
-        text += "• <b>" + escapeHtml(o.product_name) + "</b> — " + status + "\n";
+        text += "• <b>" + escapeHtml(o.product_name) + "</b> — " + status + "\\n";
         if (o.xray_sub_token && o.status === "completed") {
           const subUrl = "https://raymond.myraymond2025.workers.dev/api/xray/sub/" + o.xray_sub_token;
-          text += "  🔗 <code>" + subUrl + "</code>\n";
+          text += "  🔗 <code>" + subUrl + "</code>\\n";
         }
-        text += "\n";
+        text += "\\n";
       }
       await bot.editMessageText(chatId, messageId, text, { reply_markup: backToMainKeyboard() });
       await bot.answerCallbackQuery(cb.id);
@@ -288,12 +292,12 @@ async function handleCallback(
 
     if (data === "help") {
       const text =
-        "❓ <b>راهنما</b>\n\n" +
-        "1️⃣ از منوی اصلی «خرید اکانت» رو بزن\n" +
-        "2️⃣ پلن مورد نظر رو انتخاب کن\n" +
-        "3️⃣ مبلغ رو به کارت واریز کن\n" +
-        "4️⃣ عکس فیش رو ارسال کن\n" +
-        "5️⃣ بعد از تایید ادمین، لینک اتصال برات ارسال می‌شه\n\n" +
+        "❓ <b>راهنما</b>\\n\\n" +
+        "1️⃣ از منوی اصلی «خرید اکانت» رو بزن\\n" +
+        "2️⃣ پلن مورد نظر رو انتخاب کن\\n" +
+        "3️⃣ مبلغ رو به کارت واریز کن\\n" +
+        "4️⃣ عکس فیش رو ارسال کن\\n" +
+        "5️⃣ بعد از تایید ادمین، لینک اتصال برات ارسال می‌شه\\n\\n" +
         "📱 لینک رو توی V2Box یا Hiddify import کن.";
       await bot.editMessageText(chatId, messageId, text, { reply_markup: backToMainKeyboard() });
       await bot.answerCallbackQuery(cb.id);
@@ -301,7 +305,7 @@ async function handleCallback(
     }
 
     if (data === "support") {
-      const text = "💬 <b>پشتیبانی</b>\n\nبرای ارتباط: " + settings.support_username;
+      const text = "💬 <b>پشتیبانی</b>\\n\\nبرای ارتباط: " + settings.support_username;
       await bot.editMessageText(chatId, messageId, text, { reply_markup: backToMainKeyboard() });
       await bot.answerCallbackQuery(cb.id);
       return;
@@ -337,11 +341,11 @@ async function handleCallback(
         await bot.answerCallbackQuery(cb.id);
         return;
       }
-      let text = "📋 <b>" + orders.length + " سفارش در انتظار</b>\n\n";
+      let text = "📋 <b>" + orders.length + " سفارش در انتظار</b>\\n\\n";
       for (const o of orders) {
-        text += "• <b>" + escapeHtml(o.product_name) + "</b> — " + formatPrice(o.price_toman) + "\n";
-        text += "  کاربر: @" + (o.user_username ?? o.user_telegram_id) + "\n";
-        text += "  ID: <code>" + o.id + "</code>\n\n";
+        text += "• <b>" + escapeHtml(o.product_name) + "</b> — " + formatPrice(o.price_toman) + "\\n";
+        text += "  کاربر: @" + (o.user_username ?? o.user_telegram_id) + "\\n";
+        text += "  ID: <code>" + o.id + "</code>\\n\\n";
       }
       await bot.editMessageText(chatId, messageId, text, { reply_markup: adminMenuKeyboard() });
       await bot.answerCallbackQuery(cb.id);
@@ -354,10 +358,10 @@ async function handleCallback(
       const completed = await queryFirst<{ c: number }>(env.DB, "SELECT COUNT(*) as c FROM orders WHERE status = 'completed'");
       const revenue = await queryFirst<{ s: number }>(env.DB, "SELECT COALESCE(SUM(price_toman), 0) as s FROM orders WHERE status = 'completed'");
       const text =
-        "📊 <b>آمار فروش</b>\n\n" +
-        "کل سفارش‌ها: <b>" + (total?.c ?? 0) + "</b>\n" +
-        "در انتظار تایید: <b>" + (pending?.c ?? 0) + "</b>\n" +
-        "تایید شده: <b>" + (completed?.c ?? 0) + "</b>\n" +
+        "📊 <b>آمار فروش</b>\\n\\n" +
+        "کل سفارش‌ها: <b>" + (total?.c ?? 0) + "</b>\\n" +
+        "در انتظار تایید: <b>" + (pending?.c ?? 0) + "</b>\\n" +
+        "تایید شده: <b>" + (completed?.c ?? 0) + "</b>\\n" +
         "درآمد کل: <b>" + formatPrice(revenue?.s ?? 0) + "</b>";
       await bot.editMessageText(chatId, messageId, text, { reply_markup: adminMenuKeyboard() });
       await bot.answerCallbackQuery(cb.id);
@@ -382,7 +386,7 @@ async function handleReceiptPhoto(
   const from = msg.from;
   const state = await getUserState(env, String(from.id));
   if (!state || state.state !== "awaiting_receipt") {
-    await bot.sendMessage(msg.chat.id, "⚠️ اول یه پلن انتخاب کن و فیش رو از اون مسیر بفرست.\n/start", { reply_markup: backToMainKeyboard() });
+    await bot.sendMessage(msg.chat.id, "⚠️ اول یه پلن انتخاب کن و فیش رو از اون مسیر بفرست.\\n/start", { reply_markup: backToMainKeyboard() });
     return;
   }
   const productId = state.state_data.product_id as string;
@@ -404,14 +408,14 @@ async function handleReceiptPhoto(
     "INSERT INTO orders (id, user_telegram_id, user_username, user_first_name, product_id, product_name, product_snapshot, price_toman, status, receipt_file_id, receipt_chat_id, receipt_message_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending_approval', ?, ?, ?, ?, ?)",
     orderId, String(from.id), from.username ?? null, from.first_name ?? null, product.id, product.name, JSON.stringify(product), product.price_toman, photo.file_id, String(msg.chat.id), String(msg.message_id), now, now
   );
-  await bot.sendMessage(msg.chat.id, "✅ فیش شما دریافت شد!\n\n⏳ در انتظار تایید ادمین...\n\nبعد از تایید، لینک اتصال برات ارسال می‌شه.", { reply_markup: backToMainKeyboard() });
+  await bot.sendMessage(msg.chat.id, "✅ فیش شما دریافت شد!\\n\\n⏳ در انتظار تایید ادمین...\\n\\nبعد از تایید، لینک اتصال برات ارسال می‌شه.", { reply_markup: backToMainKeyboard() });
   const adminText =
-    "🔔 <b>سفارش جدید</b>\n\n" +
-    "👤 کاربر: " + escapeHtml(from.first_name) + (from.username ? " (@" + from.username + ")" : "") + "\n" +
-    "🆔 Telegram ID: <code>" + from.id + "</code>\n\n" +
-    "📦 محصول: <b>" + escapeHtml(product.name) + "</b>\n" +
-    "📊 " + product.quota_gb + " GB / " + product.duration_days + " روز\n" +
-    "💰 <b>" + formatPrice(product.price_toman) + "</b>\n\n" +
+    "🔔 <b>سفارش جدید</b>\\n\\n" +
+    "👤 کاربر: " + escapeHtml(from.first_name) + (from.username ? " (@" + from.username + ")" : "") + "\\n" +
+    "🆔 Telegram ID: <code>" + from.id + "</code>\\n\\n" +
+    "📦 محصول: <b>" + escapeHtml(product.name) + "</b>\\n" +
+    "📊 " + product.quota_gb + " GB / " + product.duration_days + " روز\\n" +
+    "💰 <b>" + formatPrice(product.price_toman) + "</b>\\n\\n" +
     "ID سفارش: <code>" + orderId + "</code>";
   try {
     await bot.copyMessage(adminId, msg.chat.id, msg.message_id, { caption: adminText, reply_markup: adminOrderKeyboard(orderId) });
@@ -479,18 +483,18 @@ async function approveOrder(
     );
     const subUrl = "https://raymond.myraymond2025.workers.dev/api/xray/sub/" + publicToken;
     const userText =
-      "🎉 <b>پرداخت شما تایید شد!</b>\n\n" +
-      "📦 محصول: <b>" + escapeHtml(order.product_name) + "</b>\n" +
-      "📊 حجم: <b>" + snapshot.quota_gb + " GB</b>\n" +
-      "⚡ سرعت: <b>" + (snapshot.speed_mbps > 0 ? snapshot.speed_mbps + " Mbps" : "بی‌نهایت") + "</b>\n" +
-      "📅 مدت: <b>" + snapshot.duration_days + " روز</b>\n\n" +
-      "🔗 <b>لینک اتصال:</b>\n" +
-      "<code>" + subUrl + "</code>\n\n" +
+      "🎉 <b>پرداخت شما تایید شد!</b>\\n\\n" +
+      "📦 محصول: <b>" + escapeHtml(order.product_name) + "</b>\\n" +
+      "📊 حجم: <b>" + snapshot.quota_gb + " GB</b>\\n" +
+      "⚡ سرعت: <b>" + (snapshot.speed_mbps > 0 ? snapshot.speed_mbps + " Mbps" : "بی‌نهایت") + "</b>\\n" +
+      "📅 مدت: <b>" + snapshot.duration_days + " روز</b>\\n\\n" +
+      "🔗 <b>لینک اتصال:</b>\\n" +
+      "<code>" + subUrl + "</code>\\n\\n" +
       "📱 این لینک رو توی V2Box یا Hiddify import کن.";
     await bot.sendMessage(order.user_telegram_id, userText);
     await bot.editMessageCaption(
       adminChatId, adminMessageId,
-      "✅ <b>سفارش تایید شد</b>\n\n👤 " + order.user_telegram_id + "\n📦 " + escapeHtml(order.product_name) + "\n🔑 " + xrayUserName,
+      "✅ <b>سفارش تایید شد</b>\\n\\n👤 " + order.user_telegram_id + "\\n📦 " + escapeHtml(order.product_name) + "\\n🔑 " + xrayUserName,
       { reply_markup: adminMenuKeyboard() }
     );
   } catch (err) {
@@ -498,7 +502,7 @@ async function approveOrder(
     try {
       await bot.editMessageCaption(
         adminChatId, adminMessageId,
-        "❌ <b>خطا در تایید</b>\n\n<code>" + escapeHtml(String(err)).slice(0, 400) + "</code>",
+        "❌ <b>خطا در تایید</b>\\n\\n<code>" + escapeHtml(String(err)).slice(0, 400) + "</code>",
         { reply_markup: adminMenuKeyboard() }
       );
     } catch (e2) {
@@ -526,7 +530,7 @@ async function rejectOrder(
   await run(env.DB, "UPDATE orders SET status = 'rejected', updated_at = ? WHERE id = ?", Date.now(), orderId);
   await bot.sendMessage(
     order.user_telegram_id,
-    "❌ <b>سفارش شما رد شد</b>\n\n📦 " + escapeHtml(order.product_name) + "\n\nبرای اطلاعات بیشتر با پشتیبانی تماس بگیرید."
+    "❌ <b>سفارش شما رد شد</b>\\n\\n📦 " + escapeHtml(order.product_name) + "\\n\\nبرای اطلاعات بیشتر با پشتیبانی تماس بگیرید."
   );
   await bot.editMessageCaption(adminChatId, adminMessageId, "❌ سفارش رد شد", { reply_markup: adminMenuKeyboard() });
 }
@@ -534,3 +538,13 @@ async function rejectOrder(
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+`;
+
+// Write as UTF-8 with BOM (needed by some tools) — actually we want NO BOM for Cloudflare
+fs.writeFileSync("src/worker/bot/handler.ts", content, "utf-8");
+console.log("Written:", content.length, "bytes");
+
+// Verify no bad chars
+const c = fs.readFileSync("src/worker/bot/handler.ts", "utf-8");
+const bad = (c.match(/[\u00C0-\u00FF]{3,}/g) || []).length;
+console.log("Bad sequences:", bad);
