@@ -5,6 +5,18 @@ import type { Env } from "../core/db";
 import { queryAll, queryFirst, run } from "../core/db";
 import { NodeClient } from "../adapters/ai/node-client";
 
+
+// Safe waitUntil wrapper — handles cases where executionCtx is undefined (e.g. DO fetch)
+function safeWaitUntil(c: { executionCtx?: { waitUntil: (p: Promise<unknown>) => void } }, promise: Promise<unknown>): void {
+  const ctx = c?.executionCtx;
+  if (ctx && typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(promise);
+  } else {
+    // Fallback: run the promise without awaiting
+    promise.catch((err) => console.error("bg task failed:", err));
+  }
+}
+
 export const xrayRoutes = new Hono<{ Bindings: Env }>();
 
 const NODE_ID = "hetzner-nbg1-01";
@@ -235,7 +247,7 @@ xrayRoutes.put("/users/:name", async (c) => {
   await run(c.env.DB, `UPDATE xray_users SET ${fields.join(", ")} WHERE name = ?`, ...params);
 
   // Trigger a sync (enabled state might have changed)
-  c.executionCtx.waitUntil(
+  safeWaitUntil(c, 
     syncAllUsersToVps(c.env).catch((e) => console.error("sync failed:", e))
   );
 

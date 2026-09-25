@@ -8,13 +8,24 @@ import type { Env } from "../core/db";
 import { handleUpdate } from "../bot/handler";
 import type { TelegramUpdate } from "../bot/telegram-api";
 
+
+// Safe waitUntil wrapper — handles cases where executionCtx is undefined
+function safeWaitUntil(c: { executionCtx?: { waitUntil: (p: Promise<unknown>) => void } }, promise: Promise<unknown>): void {
+  const ctx = c?.executionCtx;
+  if (ctx && typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(promise);
+  } else {
+    promise.catch((err) => console.error("bg task failed:", err));
+  }
+}
+
 export const botWebhookRoutes = new Hono<{ Bindings: Env }>();
 
 botWebhookRoutes.post("/webhook", async (c) => {
   try {
     const update = (await c.req.json()) as TelegramUpdate;
     // Process async — return 200 immediately so Telegram doesn't retry
-    c.executionCtx.waitUntil(
+    safeWaitUntil(c, 
       handleUpdate(c.env, update).catch((err) => {
         console.error("bot update error:", err);
       })

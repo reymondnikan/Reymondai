@@ -20,6 +20,7 @@ import { botButtonsRoutes } from "./routes/bot-buttons";
 import { nodesRoutes } from "./routes/nodes";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
+import { handleCron } from "./cron";
 
 export { TelegramProxy } from "./do/telegram-proxy";
 export { NodeAgent } from "./do/node-agent";
@@ -66,7 +67,7 @@ app.all("*", async (c) => c.env.ASSETS.fetch(c.req.raw));
 
 let bootstrapped = false;
 
-function bootstrap(env: Env, ctx: ExecutionContext): void {
+function bootstrap(env: Env, ctx?: ExecutionContext): void {
   if (bootstrapped) return;
   bootstrapped = true;
 
@@ -79,14 +80,21 @@ function bootstrap(env: Env, ctx: ExecutionContext): void {
   aiChatCapability.register();
   console.log("[bootstrap] ai-chat registered");
 
-  ctx.waitUntil(
+  if (ctx) ctx.waitUntil(
     registry.syncToDb(env).catch((err) => console.error("Registry sync failed:", err))
   );
 }
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    bootstrap(env, ctx);
+    await bootstrap(env, ctx);
+    initRuntime(env);
+    setEnv(env);
     return app.fetch(request, env, ctx);
+  },
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    initRuntime(env);
+    setEnv(env);
+    if (ctx) ctx.waitUntil(handleCron(env));
   },
 } satisfies ExportedHandler<Env>;

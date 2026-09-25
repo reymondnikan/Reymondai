@@ -32,7 +32,9 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["TelegramProxy"] },
     { "tag": "v2", "new_sqlite_classes": ["NodeAgent"] }
-  ],
+  ],  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
   "vars": {
     "ENVIRONMENT": "production",
     "APP_NAME": "Raymond"

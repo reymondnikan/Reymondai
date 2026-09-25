@@ -7,6 +7,17 @@ import type { Env } from "../core/db";
 import type { Conversation, Message } from "../../shared/types";
 import { aiChatCapability } from "../capabilities/ai-chat";
 
+
+// Safe waitUntil wrapper — handles cases where executionCtx is undefined
+function safeWaitUntil(c: { executionCtx?: { waitUntil: (p: Promise<unknown>) => void } }, promise: Promise<unknown>): void {
+  const ctx = c?.executionCtx;
+  if (ctx && typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(promise);
+  } else {
+    promise.catch((err) => console.error("bg task failed:", err));
+  }
+}
+
 export const chatRoutes = new Hono<{ Bindings: Env }>();
 
 chatRoutes.post("/conversations", async (c) => {
@@ -49,7 +60,7 @@ chatRoutes.post("/conversations/:id/messages", async (c) => {
   console.log(`[chat] handling message for ${conversationId}, provider=${body.provider ?? "default"}`);
 
   // Run the AI chat handler directly (no event bus hop → same isolate)
-  c.executionCtx.waitUntil(
+  safeWaitUntil(c, 
     aiChatCapability.handle({
       conversation_id: conversationId,
       content: body.content,
