@@ -39,10 +39,23 @@ function buildVlessLink(name: string, uuid: string): string {
 
 async function syncAllUsersToVps(env: Env): Promise<{ ok: boolean; error?: string }> {
   try {
-    const cli = node(env);
-    const users = await queryAll(env.DB, "SELECT name, uuid FROM xray_users WHERE enabled = 1 ORDER BY created_at ASC");
+    // Get all users
+    const users = await queryAll(
+      env.DB,
+      "SELECT name, uuid FROM xray_users WHERE enabled = 1 ORDER BY created_at ASC"
+    );
 
-    const usersData = users.map((u: any) => ({
+    // Get all enabled nodes
+    const nodes = await queryAll(
+      env.DB,
+      "SELECT id, display_name FROM nodes WHERE enabled = 1 ORDER BY sort_order ASC"
+    );
+
+    if (nodes.length === 0) {
+      return { ok: false, error: "no nodes configured" };
+    }
+
+    const usersData = users.map((u) => ({
       name: u.name,
       uuid: u.uuid,
       enabled: true,
@@ -54,10 +67,35 @@ async function syncAllUsersToVps(env: Env): Promise<{ ok: boolean; error?: strin
 
     const script = "echo '" + b64 + "' | base64 -d | sudo tee /usr/local/etc/xray/users.json > /dev/null && sudo chown raymond:raymond /usr/local/etc/xray/users.json && bash ~/raymond-node/scripts/xray-sync.sh && sudo systemctl restart xray && echo SYNC_DONE";
 
-    const r = await cli.task("shell.exec", { cmd: script }, 60000);
-    if (!r.ok) return { ok: false, error: r.error ?? "task failed" };
-    const out = (r.output as any)?.stdout ?? "";
-    if (!out.includes("SYNC_DONE")) return { ok: false, error: "sync incomplete: " + out.slice(0, 200) };
+    const results: Record<string, { ok: boolean; error?: string }> = {};
+
+    // Sync to all nodes in parallel
+    await Promise.all(
+      nodes.map(async (node) => {
+        try {
+          const cli = new NodeClient(env, node.id);
+          const r = await cli.task("shell.exec", { cmd: script }, 60000);
+          const out = (r.output as { stdout?: string })?.stdout ?? "";
+          if (r.ok && out.includes("SYNC_DONE")) {
+            results[node.id] = { ok: true };
+          } else {
+            results[node.id] = { ok: false, error: r.error ?? "sync incomplete" };
+          }
+        } catch (e) {
+          results[node.id] = { ok: false, error: (e as Error).message };
+        }
+      })
+    );
+
+    // Check results
+    const failed = Object.entries(results).filter(([, r]) => !r.ok);
+    if (failed.length > 0) {
+      return {
+        ok: false,
+        error: "some nodes failed: " + failed.map(([id, r]) => id + ": " + r.error).join("; "),
+      };
+    }
+
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -180,19 +218,50 @@ xrayRoutes.get("/sub/:token", async (c) => {
   const user = await queryFirst(c.env.DB, "SELECT name, uuid, quota_gb, used_bytes, enabled, expires_at FROM xray_users WHERE public_token = ? LIMIT 1", token);
   if (!user) return new Response("Not found", { status: 404 });
 
-  const u = user as any;
-  const link = buildVlessLink(u.name, u.uuid);
-  const body = btoa(link);
-  const totalBytes = u.quota_gb > 0 ? u.quota_gb * 1073741824 : 0;
-  const expireTs = u.expires_at ? Math.floor(u.expires_at / 1000) : 0;
-  const userInfo = "upload=0; download=" + u.used_bytes + "; total=" + totalBytes + "; expire=" + expireTs;
+  // Fetch all enabled nodes
+  const nodes = await queryAll(
+    c.env.DB,
+    "SELECT id, display_name, flag, ip, port, sni, public_key, short_id FROM nodes WHERE enabled = 1 ORDER BY sort_order ASC"
+  );
+
+  if (nodes.length === 0) {
+    return new Response("No nodes available", { status: 503 });
+  }
+
+  // Build a VLESS link for each node
+  const links = [];
+  for (const n of nodes) {
+    const params = new URLSearchParams({
+      encryption: "none",
+      flow: "xtls-rprx-vision",
+      security: "reality",
+      sni: n.sni,
+      fp: "chrome",
+      pbk: n.public_key,
+      sid: n.short_id,
+      type: "tcp",
+      headerType: "none",
+    });
+    const flag = n.flag ? n.flag + " " : "";
+    const label = flag + n.display_name;
+    const link = "vless://" + user.uuid + "@" + n.ip + ":" + n.port + "?" + params.toString() + "#" + encodeURIComponent(label);
+    links.push(link);
+  }
+
+  // Join links with newline and base64-encode
+  const joined = links.join("\n");
+  const body = btoa(unescape(encodeURIComponent(joined)));
+
+  const totalBytes = user.quota_gb > 0 ? user.quota_gb * 1073741824 : 0;
+  const expireTs = user.expires_at ? Math.floor(user.expires_at / 1000) : 0;
+  const userInfo = "upload=0; download=" + user.used_bytes + "; total=" + totalBytes + "; expire=" + expireTs;
 
   return new Response(body, {
     status: 200,
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "subscription-userinfo": userInfo,
-      "profile-title": "Raymond - " + u.name,
+      "profile-title": "Raymond - " + user.name,
       "profile-update-interval": "24",
       "Cache-Control": "no-store",
     },

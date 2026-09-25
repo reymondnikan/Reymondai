@@ -47,7 +47,7 @@ export class NodeAgent {
 
   constructor(
     private state: DurableObjectState,
-    private env: { NODE_SECRET?: string }
+    private env: { NODE_SECRETS?: string; NODE_SECRET?: string }
   ) {}
 
   async fetch(request: Request): Promise<Response> {
@@ -59,7 +59,7 @@ export class NodeAgent {
       // Authenticate
       const secret = request.headers.get("X-Raymond-Node-Secret") ?? "";
       const nodeId = request.headers.get("X-Raymond-Node-Id") ?? "";
-      if (!verifyNodeSecret(this.env.NODE_SECRET ?? "", secret)) {
+      if (!verifyNodeSecret(this.env.NODE_SECRETS, this.env.NODE_SECRET, nodeId, secret)) {
         return new Response("Unauthorized", { status: 401 });
       }
 

@@ -12,6 +12,7 @@ export interface Env {
   OLLAMA_URL?: string;
   RAYMOND_MASTER_KEY?: string;
   NODE_SECRET?: string;
+  NODE_SECRETS?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_ADMIN_ID?: string;
   INTERNAL_API_KEY?: string;
