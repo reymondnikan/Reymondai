@@ -99,6 +99,29 @@ export function adminMenuKeyboard(): { inline_keyboard: InlineKeyboardButton[][]
   };
 }
 
+
+
+// ============================================================
+// My Accounts keyboard — shows QR button + back
+// ============================================================
+export function myAccountsKeyboard(
+  orders: Array<{ id: string; xray_sub_token: string | null; status: string }>
+): { inline_keyboard: InlineKeyboardButton[][] } {
+  const rows: InlineKeyboardButton[][] = [];
+
+  // One row per completed order with a token
+  for (const o of orders) {
+    if (o.status === "completed" && o.xray_sub_token) {
+      rows.push([
+        { text: "📷 QR اکانت", callback_data: "qr_" + o.id },
+      ]);
+    }
+  }
+
+  rows.push([{ text: "« بازگشت", callback_data: "back_main" }]);
+  return { inline_keyboard: rows };
+}
+
 export function formatPrice(toman: number): string {
   return toman.toLocaleString("fa-IR") + " تومان";
 }

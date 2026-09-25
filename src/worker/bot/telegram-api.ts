@@ -113,6 +113,23 @@ export class TelegramBot {
     });
   }
 
+  sendPhoto(
+    chatId: number | string,
+    photoUrl: string,
+    options?: {
+      caption?: string;
+      parse_mode?: "HTML" | "MarkdownV2";
+      reply_markup?: unknown;
+    }
+  ) {
+    return this.call("sendPhoto", {
+      chat_id: chatId,
+      photo: photoUrl,
+      caption: options?.caption,
+      parse_mode: options?.parse_mode ?? "HTML",
+      reply_markup: options?.reply_markup,
+    });
+  }
   copyMessage(
     chatId: number | string,
     fromChatId: number | string,

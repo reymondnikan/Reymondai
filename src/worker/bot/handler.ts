@@ -12,6 +12,7 @@ import {
   adminOrderKeyboard,
   adminMenuKeyboard,
   formatPrice,
+  myAccountsKeyboard,
 } from "./keyboards";
 
 function newId(prefix: string): string {
@@ -261,27 +262,51 @@ async function handleCallback(
     }
 
     if (data === "my_accounts") {
-      const orders = await queryAll<{ id: string; product_name: string; status: string; xray_user_name: string; xray_sub_token: string; created_at: number }>(
+      const orders = await queryAll<{
+        id: string;
+        product_name: string;
+        status: string;
+        xray_user_name: string;
+        xray_sub_token: string;
+        created_at: number;
+      }>(
         env.DB,
         "SELECT id, product_name, status, xray_user_name, xray_sub_token, created_at FROM orders WHERE user_telegram_id = ? ORDER BY created_at DESC LIMIT 20",
         String(from.id)
       );
+
       if (orders.length === 0) {
-        await bot.editMessageText(chatId, messageId, "📭 هنوز اکانتی نداری.", { reply_markup: backToMainKeyboard() });
+        await bot.editMessageText(chatId, messageId, L("📭 هنوز اکانتی نداری."), {
+          reply_markup: backToMainKeyboard(),
+        });
         await bot.answerCallbackQuery(cb.id);
         return;
       }
-      let text = "📦 <b>اکانت‌های شما</b>\n\n";
+
+      let text = L("📦 اکانت‌های شما") + "\n\n";
+      const completedOrders: Array<{ id: string; xray_sub_token: string | null; status: string }> = [];
+      
       for (const o of orders) {
-        const status = o.status === "completed" ? "✅ فعال" : o.status === "pending_approval" ? "⏳ در انتظار تایید" : o.status === "rejected" ? "❌ رد شده" : "⏳";
-        text += "• <b>" + escapeHtml(o.product_name) + "</b> — " + status + "\n";
+        const status =
+          o.status === "completed"
+            ? L("✅ فعال")
+            : o.status === "pending_approval"
+            ? L("⏳ در انتظار تایید")
+            : o.status === "rejected"
+            ? L("❌ رد شده")
+            : L("⏳");
+        text += L("•") + " <b>" + escapeHtml(o.product_name) + "</b> — " + status + "\n";
         if (o.xray_sub_token && o.status === "completed") {
           const subUrl = "https://raymond.myraymond2025.workers.dev/api/xray/sub/" + o.xray_sub_token;
-          text += "  🔗 <code>" + subUrl + "</code>\n";
+          text += "  " + L("🔗") + " <code>" + subUrl + "</code>\n";
+          completedOrders.push({ id: o.id, xray_sub_token: o.xray_sub_token, status: o.status });
         }
         text += "\n";
       }
-      await bot.editMessageText(chatId, messageId, text, { reply_markup: backToMainKeyboard() });
+      
+      await bot.editMessageText(chatId, messageId, text, {
+        reply_markup: myAccountsKeyboard(completedOrders),
+      });
       await bot.answerCallbackQuery(cb.id);
       return;
     }
@@ -360,6 +385,39 @@ async function handleCallback(
         "تایید شده: <b>" + (completed?.c ?? 0) + "</b>\n" +
         "درآمد کل: <b>" + formatPrice(revenue?.s ?? 0) + "</b>";
       await bot.editMessageText(chatId, messageId, text, { reply_markup: adminMenuKeyboard() });
+      await bot.answerCallbackQuery(cb.id);
+      return;
+    }
+
+    if (data.startsWith("qr_")) {
+      const orderId = data.slice("qr_".length);
+      const order = await queryFirst<{
+        id: string;
+        product_name: string;
+        xray_sub_token: string;
+      }>(
+        env.DB,
+        "SELECT id, product_name, xray_sub_token FROM orders WHERE id = ? AND user_telegram_id = ? LIMIT 1",
+        orderId,
+        String(from.id)
+      );
+      if (!order || !order.xray_sub_token) {
+        await bot.answerCallbackQuery(cb.id, "اکانت پیدا نشد", true);
+        return;
+      }
+
+      const subUrl = "https://raymond.myraymond2025.workers.dev/api/xray/sub/" + order.xray_sub_token;
+      const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=" + encodeURIComponent(subUrl);
+
+      const caption =
+        "📷 QR اکانت" + "\n\n" +
+        "📦 " + escapeHtml(order.product_name) + "\n\n" +
+        "📱 این QR رو با V2Box یا Hiddify اسکن کن.";
+
+      await bot.sendPhoto(chatId, qrUrl, {
+        caption,
+        reply_markup: backToMainKeyboard(),
+      });
       await bot.answerCallbackQuery(cb.id);
       return;
     }
@@ -534,3 +592,17 @@ async function rejectOrder(
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+
+// L() = Unicode-escape wrapper for Persian strings (avoids encoding issues)
+function L(s: string): string {
+  return s.replace(/[^\x00-\x7F]/g, (ch) => {
+    const code = ch.charCodeAt(0);
+    if (code > 0xFFFF) {
+      const high = Math.floor((code - 0x10000) / 0x400) + 0xD800;
+      const low = ((code - 0x10000) % 0x400) + 0xDC00;
+      return "\\u" + high.toString(16).padStart(4, "0") + "\\u" + low.toString(16).padStart(4, "0");
+    }
+    return "\\u" + code.toString(16).padStart(4, "0");
+  });
+}
+
