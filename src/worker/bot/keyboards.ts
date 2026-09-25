@@ -106,16 +106,19 @@ export function adminMenuKeyboard(): { inline_keyboard: InlineKeyboardButton[][]
 // My Accounts keyboard — shows QR button + back
 // ============================================================
 export function myAccountsKeyboard(
-  orders: Array<{ id: string; xray_sub_token: string | null; status: string }>
+  orders: Array<{ id: string; xray_sub_token: string | null; status: string; product_name: string }>
 ): { inline_keyboard: InlineKeyboardButton[][] } {
   const rows: InlineKeyboardButton[][] = [];
 
-  // One row per completed order with a token
   for (const o of orders) {
-    if (o.status === "completed" && o.xray_sub_token) {
-      rows.push([
-        { text: "📷 QR اکانت", callback_data: "qr_" + o.id },
-      ]);
+    if (o.status === "completed") {
+      // QR + Renew buttons for each completed order
+      const buttons: InlineKeyboardButton[] = [];
+      if (o.xray_sub_token) {
+        buttons.push({ text: "📷 QR", callback_data: "qr_" + o.id });
+      }
+      buttons.push({ text: "🔄 تمدید " + o.product_name, callback_data: "renew_" + o.id });
+      rows.push(buttons);
     }
   }
 
