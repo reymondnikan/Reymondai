@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import fs from "node:fs";
+
+const content = `import { useEffect, useState, useCallback } from "react";
 import {
   xrayApi,
   formatBytes,
@@ -439,3 +441,7 @@ export function XrayApp() {
     </div>
   );
 }
+`;
+
+fs.writeFileSync("src/ui/apps/xray/XrayApp.tsx", content, "utf-8");
+console.log("OK", content.length);

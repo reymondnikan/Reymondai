@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   "/api/auth/status",
   "/api/xray/sub",
   "/api/xray/public/usage",
+  "/api/bot",
 ];
 
 export function requireAuth() {

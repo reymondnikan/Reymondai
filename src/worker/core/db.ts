@@ -1,4 +1,4 @@
-﻿// D1 database helper
+// D1 database helper
 
 export interface Env {
   DB: D1Database;
@@ -12,6 +12,9 @@ export interface Env {
   OLLAMA_URL?: string;
   RAYMOND_MASTER_KEY?: string;
   NODE_SECRET?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_ADMIN_ID?: string;
+  INTERNAL_API_KEY?: string;
 }
 
 export async function queryFirst<T = unknown>(

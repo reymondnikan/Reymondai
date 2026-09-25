@@ -194,3 +194,79 @@ CREATE TABLE IF NOT EXISTS xray_users (
 );
 
 CREATE INDEX IF NOT EXISTS idx_xray_users_name ON xray_users(name);
+
+-- ============================================
+-- Raymond Shop — Products, Orders, Bot Users
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  quota_gb INTEGER NOT NULL DEFAULT 0,
+  speed_mbps INTEGER NOT NULL DEFAULT 0,
+  duration_days INTEGER NOT NULL DEFAULT 0,
+  price_toman INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bot_users (
+  telegram_id TEXT PRIMARY KEY,
+  username TEXT,
+  first_name TEXT,
+  last_name TEXT,
+  is_admin INTEGER NOT NULL DEFAULT 0,
+  state TEXT DEFAULT 'idle',
+  state_data TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL,
+  last_seen INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id TEXT PRIMARY KEY,
+  user_telegram_id TEXT NOT NULL,
+  user_username TEXT,
+  user_first_name TEXT,
+  product_id TEXT,
+  product_name TEXT NOT NULL,
+  product_snapshot TEXT NOT NULL,
+  price_toman INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending_payment',
+  receipt_file_id TEXT,
+  receipt_chat_id TEXT,
+  receipt_message_id TEXT,
+  admin_message_id TEXT,
+  approved_by TEXT,
+  approved_at INTEGER,
+  rejected_reason TEXT,
+  xray_user_name TEXT,
+  xray_sub_token TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_telegram_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS shop_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+INSERT OR IGNORE INTO shop_settings (key, value, updated_at) VALUES
+  ('shop_name', '"Raymond VPN"', 0),
+  ('shop_description', '"پروکسی پرسرعت و پایدار"', 0),
+  ('support_username', '"@raymond_support"', 0),
+  ('payment_card', '"6037-XXXX-XXXX-XXXX"', 0),
+  ('payment_holder', '"نام صاحب کارت"', 0),
+  ('welcome_message', '"به Raymond VPN خوش آمدید 🌐\n\nاز منوی زیر انتخاب کنید:"', 0);
+
+-- Seed products
+INSERT OR IGNORE INTO products (id, name, description, quota_gb, speed_mbps, duration_days, price_toman, enabled, sort_order, created_at, updated_at) VALUES
+  ('prod_1', 'برنزی', 'مناسب استفاده روزمره', 10, 50, 30, 50000, 1, 1, 0, 0),
+  ('prod_2', 'نقرهای', 'مناسب استفاده متوسط', 30, 100, 30, 100000, 1, 2, 0, 0),
+  ('prod_3', 'طلایی', 'مناسب استفاده سنگین', 100, 100, 90, 250000, 1, 3, 0, 0);

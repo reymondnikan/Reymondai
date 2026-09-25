@@ -1,4 +1,6 @@
-// Xray Control API client.
+﻿import fs from "node:fs";
+
+const content = `// Xray Control API client.
 
 const BASE = "/api/xray";
 
@@ -90,3 +92,7 @@ export function formatSpeed(mbps: number): string {
   if (mbps === 0) return "Unlimited";
   return mbps + " Mbps";
 }
+`;
+
+fs.writeFileSync("src/ui/apps/xray/api.ts", content, "utf-8");
+console.log("OK", content.length);

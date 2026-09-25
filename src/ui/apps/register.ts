@@ -5,6 +5,7 @@ import { MessengerApp } from "./messenger/MessengerApp";
 import { SettingsApp } from "./settings/SettingsApp";
 import { NodesApp } from "./nodes/NodesApp";
 import { XrayApp } from "./xray/XrayApp";
+import { ShopApp } from "./shop/ShopApp";
 
 export function registerApps(): void {
   appRegistry.register({
@@ -15,6 +16,15 @@ export function registerApps(): void {
     component: MessengerApp,
     order: 10,
   });
+  appRegistry.register({
+    id: "shop",
+    name: "فروش",
+    icon: "\u{1F6D2}",
+    description: "Shop management",
+    component: ShopApp,
+    order: 30,
+  });
+
 
   appRegistry.register({
     id: "xray",
