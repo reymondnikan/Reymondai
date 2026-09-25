@@ -107,12 +107,28 @@ export function XrayApp() {
   };
 
   
-  const copyUserPageUrl = async (name: string) => {
+  
+
+const copyUserPageUrl = async (u: XrayUser) => {
     try {
-      const res = await xrayApi.getUserPageUrl(name);
+      if (u.owner_telegram_id) {
+        const res = await fetch("/api/xray/user-page/" + u.owner_telegram_id, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok && data.url) {
+            await navigator.clipboard.writeText(data.url);
+            setCopied("page_" + u.name);
+            setTimeout(() => setCopied(null), 1500);
+            return;
+          }
+        }
+      }
+      const res = await xrayApi.getUserPageUrl(u.name);
       if (res.ok && res.url) {
         await navigator.clipboard.writeText(res.url);
-        setCopied("page_" + name);
+        setCopied("page_" + u.name);
         setTimeout(() => setCopied(null), 1500);
       }
     } catch (e) {
@@ -428,7 +444,7 @@ if (loading) {
                     </button>
                     <button
                       className="xray-action-btn xray-action-page"
-                      onClick={() => copyUserPageUrl(u.name)}
+                      onClick={() => copyUserPageUrl(u)}
                       title="کپی لینک صفحه کاربر"
                     >
                       {copied === "page_" + u.name ? "✓" : "📱 صفحه"}

@@ -30,6 +30,7 @@ export interface XrayUser {
   expires_at: number | null;
   duration_days: number;
   max_connections: number;
+  owner_telegram_id: string | null;
   public_token: string | null;
 }
 

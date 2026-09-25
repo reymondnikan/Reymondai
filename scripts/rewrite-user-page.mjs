@@ -1,4 +1,7 @@
-// Public user page: /u/:token
+import fs from "node:fs";
+
+const path = "src/worker/routes/user-page.ts";
+const content = `// Public user page: /u/:token
 // Shows ALL accounts of a telegram user.
 
 import { Hono } from "hono";
@@ -24,7 +27,7 @@ userPageRoutes.get("/:token", async (c) => {
 });
 
 function renderNotFound(): string {
-  return `<!DOCTYPE html>
+  return \`<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
@@ -43,17 +46,17 @@ function renderNotFound(): string {
     <p>لینکی که باز کردی معتبر نیست یا منقضی شده.</p>
   </div>
 </body>
-</html>`;
+</html>\`;
 }
 
 function renderUserPage(token: string, appName: string): string {
-  return `<!DOCTYPE html>
+  return \`<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <meta name="theme-color" content="#0a0a0f">
-  <title>${appName} — اکانت‌های من</title>
+  <title>\${appName} — اکانت‌های من</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -124,7 +127,7 @@ function renderUserPage(token: string, appName: string): string {
   <div class="container">
     <div class="logo">
       <span class="logo-dot"></span>
-      <span>${appName}</span>
+      <span>\${appName}</span>
     </div>
     <div class="subtitle">🔐 پنل اکانت‌های شما</div>
 
@@ -138,7 +141,7 @@ function renderUserPage(token: string, appName: string): string {
   </div>
 
   <script>
-    const TOKEN = ${JSON.stringify(token)};
+    const TOKEN = \${JSON.stringify(token)};
 
     function formatBytes(bytes) {
       if (bytes === 0) return "0 B";
@@ -211,48 +214,48 @@ function renderUserPage(token: string, appName: string): string {
       const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=" + encodeURIComponent(subUrl);
       const accId = "acc_" + i;
 
-      return \`
+      return \\\`
         <div class="card">
-          \${warn}
+          \\\${warn}
           <div class="card-header">
-            <div class="user-name">\${u.name}</div>
-            <div class="status \${status}">\${statusLabel}</div>
+            <div class="user-name">\\\${u.name}</div>
+            <div class="status \\\${status}">\\\${statusLabel}</div>
           </div>
 
           <div class="quota-block">
             <div class="quota-header">
-              <span><strong>\${used}</strong> / \${total}</span>
-              <span class="quota-pct">\${u.quota_gb > 0 ? percent.toFixed(1) + "٪" : ""}</span>
+              <span><strong>\\\${used}</strong> / \\\${total}</span>
+              <span class="quota-pct">\\\${u.quota_gb > 0 ? percent.toFixed(1) + "٪" : ""}</span>
             </div>
             <div class="quota-bar">
-              <div class="quota-fill \${fillClass}" style="width: \${Math.min(100, percent)}%"></div>
+              <div class="quota-fill \\\${fillClass}" style="width: \\\${Math.min(100, percent)}%"></div>
             </div>
-            <div class="quota-text">باقی‌مانده: \${remaining}</div>
+            <div class="quota-text">باقی‌مانده: \\\${remaining}</div>
           </div>
 
           <div class="info-grid">
             <div class="info-item">
               <div class="info-label">زمان باقی‌مانده</div>
-              <div class="info-value">\${daysLeft}</div>
+              <div class="info-value">\\\${daysLeft}</div>
             </div>
             <div class="info-item">
               <div class="info-label">سرعت</div>
-              <div class="info-value">\${speed}</div>
+              <div class="info-value">\\\${speed}</div>
             </div>
           </div>
 
           <div class="btn-row" style="margin-bottom:8px;">
-            <button class="btn btn-primary" onclick="copyLink('\${subUrl}')">📋 کپی لینک</button>
-            <button class="btn btn-secondary" onclick="toggleQR('\${accId}')">📷 QR Code</button>
+            <button class="btn btn-primary" onclick="copyLink('\\\${subUrl}')">📋 کپی لینک</button>
+            <button class="btn btn-secondary" onclick="toggleQR('\\\${accId}')">📷 QR Code</button>
           </div>
 
-          <div id="\${accId}" style="display:none; text-align:center; margin-top:12px;">
+          <div id="\\\${accId}" style="display:none; text-align:center; margin-top:12px;">
             <div style="background:white; padding:12px; border-radius:10px; display:inline-block;">
-              <img src="\${qrUrl}" alt="QR" style="display:block; max-width:100%;" />
+              <img src="\\\${qrUrl}" alt="QR" style="display:block; max-width:100%;" />
             </div>
           </div>
         </div>
-      \`;
+      \\\`;
     }
 
     function toggleQR(id) {
@@ -275,5 +278,9 @@ function renderUserPage(token: string, appName: string): string {
     load();
   </script>
 </body>
-</html>`;
+</html>\`;
 }
+`;
+
+fs.writeFileSync(path, content, "utf-8");
+console.log("user-page.ts rewritten:", content.length, "bytes");

@@ -126,7 +126,7 @@ xrayRoutes.get("/server", async (c) => {
 
 xrayRoutes.get("/users", async (c) => {
   try {
-    const users = await queryAll(c.env.DB, "SELECT id, name, uuid, quota_gb, speed_mbps, used_bytes, enabled, created_at, expires_at, duration_days, public_token, max_connections FROM xray_users ORDER BY created_at DESC");
+    const users = await queryAll(c.env.DB, "SELECT id, name, uuid, quota_gb, speed_mbps, used_bytes, enabled, created_at, expires_at, duration_days, public_token, max_connections, owner_telegram_id FROM xray_users ORDER BY created_at DESC");
     return c.json({
       ok: true,
       users: (users as any[]).map((u) => ({
@@ -135,6 +135,7 @@ xrayRoutes.get("/users", async (c) => {
         enabled: u.enabled === 1, created_at: u.created_at, expires_at: u.expires_at,
         duration_days: u.duration_days, public_token: u.public_token,
         max_connections: u.max_connections ?? 0,
+        owner_telegram_id: u.owner_telegram_id ?? null,
       })),
     });
   } catch (e) { return c.json({ ok: false, error: (e as Error).message }, 500); }
@@ -426,3 +427,114 @@ xrayRoutes.get("/users/:name/page-url", async (c) => {
   const pageUrl = url.origin + "/u/" + user.public_token;
   return c.json({ ok: true, url: pageUrl, token: user.public_token });
 });
+
+
+// ============================================================
+// Get (or create) a user-page token for a telegram user
+// ============================================================
+xrayRoutes.get("/user-page/:telegramId", async (c) => {
+  const telegramId = c.req.param("telegramId");
+
+  // اگه از قبل وجود داره، برگردون
+  const existing = await queryFirst<{ token: string }>(
+    c.env.DB,
+    "SELECT token FROM user_pages WHERE telegram_id = ? LIMIT 1",
+    telegramId
+  );
+
+  let token: string;
+  if (existing) {
+    token = existing.token;
+  } else {
+    // بساز
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+    await run(
+      c.env.DB,
+      "INSERT INTO user_pages (token, telegram_id, created_at) VALUES (?, ?, ?)",
+      token,
+      telegramId,
+      Date.now()
+    );
+  }
+
+  const url = new URL(c.req.url);
+  return c.json({
+    ok: true,
+    url: url.origin + "/u/" + token,
+    token,
+  });
+});
+
+// ============================================================
+// PUBLIC: all accounts for a user-page token
+// ============================================================
+
+
+// ============================================================
+// PUBLIC: all accounts for a user-page token
+// ============================================================
+xrayRoutes.get("/public/user-accounts/:token", async (c) => {
+  const token = c.req.param("token");
+
+  const page = await queryFirst<{ telegram_id: string }>(
+    c.env.DB,
+    "SELECT telegram_id FROM user_pages WHERE token = ? LIMIT 1",
+    token
+  );
+  if (!page) return c.json({ ok: false, error: "not found" }, 404);
+
+  // اکانت‌هایی که owner_telegram_id دارن
+  const users = await queryAll<{
+    name: string;
+    uuid: string;
+    quota_gb: number;
+    speed_mbps: number;
+    used_bytes: number;
+    enabled: number;
+    created_at: number;
+    expires_at: number | null;
+    public_token: string;
+  }>(
+    c.env.DB,
+    "SELECT name, uuid, quota_gb, speed_mbps, used_bytes, enabled, created_at, expires_at, public_token FROM xray_users WHERE owner_telegram_id = ? ORDER BY created_at DESC",
+    page.telegram_id
+  );
+
+  const now = Date.now();
+  const accounts = users.map((u) => {
+    const expiresAt = u.expires_at;
+    const daysRemaining = expiresAt
+      ? Math.max(0, Math.ceil((expiresAt - now) / 86400000))
+      : null;
+    const expired = expiresAt !== null && expiresAt < now;
+    const quotaBytes = u.quota_gb > 0 ? u.quota_gb * 1073741824 : 0;
+    const quotaUsedPct =
+      quotaBytes > 0 ? Math.min(100, (u.used_bytes / quotaBytes) * 100) : 0;
+    const remainingBytes =
+      quotaBytes > 0 ? Math.max(0, quotaBytes - u.used_bytes) : null;
+
+    return {
+      name: u.name,
+      enabled: u.enabled === 1 && !expired,
+      expired,
+      quota_gb: u.quota_gb,
+      used_bytes: u.used_bytes,
+      remaining_bytes: remainingBytes,
+      quota_used_pct: quotaUsedPct,
+      speed_mbps: u.speed_mbps,
+      created_at: u.created_at,
+      expires_at: expiresAt,
+      days_remaining: daysRemaining,
+      public_token: u.public_token,
+    };
+  });
+
+  return c.json({
+    ok: true,
+    telegram_id: page.telegram_id,
+    accounts,
+  });
+});
+
