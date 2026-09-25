@@ -16,6 +16,7 @@ import { xrayRoutes } from "./routes/xray";
 import { botWebhookRoutes } from "./routes/bot-webhook";
 import { shopRoutes } from "./routes/shop";
 import { nodesCrudRoutes } from "./routes/nodes-crud";
+import { botButtonsRoutes } from "./routes/bot-buttons";
 import { nodesRoutes } from "./routes/nodes";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
@@ -53,6 +54,7 @@ app.route("/api/nodes", nodeApiRoutes);
 app.route("/api/nodes-crud", nodesCrudRoutes);
 app.route("/api/xray", xrayRoutes);
 app.route("/api/shop", shopRoutes);
+app.route("/api/shop/bot-buttons", botButtonsRoutes);
 app.route("/api/nodes-list", nodesRoutes);
 
 app.get("/api", (c) => c.json({ app: c.env.APP_NAME ?? "Raymond", version: "0.5.0" }));

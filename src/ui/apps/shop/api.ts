@@ -63,6 +63,17 @@ export interface ShopSettings {
   welcome_message?: string;
 }
 
+export interface BotButton {
+  id: string;
+  label: string;
+  action_type: "text" | "url" | "callback";
+  visible_to: "all" | "admins" | "users";
+  action_value: string;
+  sort_order: number;
+  enabled: boolean;
+  created_at: number;
+}
+
 export const shopApi = {
   getProducts: () => req<{ ok: boolean; products: Product[] }>("/products"),
 
@@ -105,6 +116,23 @@ export const shopApi = {
 
   getSettings: () =>
     req<{ ok: boolean; settings: ShopSettings }>("/settings"),
+
+  getBotButtons: () =>
+    req<{ ok: boolean; buttons: BotButton[] }>("/bot-buttons"),
+  createBotButton: (data: Partial<BotButton>) =>
+    req<{ ok: boolean; id: string }>("/bot-buttons", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateBotButton: (id: string, data: Partial<BotButton>) =>
+    req<{ ok: boolean }>("/bot-buttons/" + id, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteBotButton: (id: string) =>
+    req<{ ok: boolean }>("/bot-buttons/" + id, {
+      method: "DELETE",
+    }),
 
   setSetting: (key: string, value: string) =>
     req<{ ok: boolean }>(`/settings/${key}`, {
