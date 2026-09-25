@@ -29,6 +29,7 @@ export interface XrayUser {
   created_at: number;
   expires_at: number | null;
   duration_days: number;
+  max_connections: number;
   public_token: string | null;
 }
 
@@ -52,11 +53,28 @@ export interface CreateUserResponse {
 export const xrayApi = {
   server: () => req<ServerInfo>("/server"),
   listUsers: () => req<{ ok: boolean; users: XrayUser[] }>("/users"),
-  addUser: (name: string, quota_gb: number, speed_mbps: number, duration_days: number) =>
+  addUser: (name: string, quota_gb: number, speed_mbps: number, duration_days: number, max_connections: number) =>
     req<CreateUserResponse>("/users", {
       method: "POST",
-      body: JSON.stringify({ name, quota_gb, speed_mbps, duration_days }),
+      body: JSON.stringify({ name, quota_gb, speed_mbps, duration_days, max_connections }),
     }),
+  updateUser: (
+    name: string,
+    data: {
+      quota_gb?: number;
+      speed_mbps?: number;
+      duration_days?: number;
+      max_connections?: number;
+      enabled?: boolean;
+    }
+  ) =>
+    req<{ ok: boolean; error?: string }>(
+      "/users/" + encodeURIComponent(name),
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    ),
   removeUser: (name: string) =>
     req<{ ok: boolean; error?: string }>(
       "/users/" + encodeURIComponent(name),

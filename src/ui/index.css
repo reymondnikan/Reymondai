@@ -2589,3 +2589,25 @@ input, textarea {
   .shop-tabs { overflow-x: auto; }
   .shop-stat-value.small { font-size: 13px; }
 }
+
+.xray-action-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.xray-action-edit {
+  background: transparent;
+  border: 1px solid #ffb84d;
+  color: #ffb84d;
+}
+
+.xray-action-edit:hover {
+  background: #ffb84d;
+  color: white;
+}

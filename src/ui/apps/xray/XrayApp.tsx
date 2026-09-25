@@ -19,6 +19,16 @@ export function XrayApp() {
   const [newQuota, setNewQuota] = useState(0);
   const [newSpeed, setNewSpeed] = useState(0);
   const [newDays, setNewDays] = useState(0);
+  const [newMaxConn, setNewMaxConn] = useState(0);
+  const [editingUser, setEditingUser] = useState<XrayUser | null>(null);
+  const [editForm, setEditForm] = useState({
+    quota_gb: 0,
+    speed_mbps: 0,
+    duration_days: 0,
+    max_connections: 0,
+    enabled: true,
+  });
+  const [editSaving, setEditSaving] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const [linkModal, setLinkModal] = useState<{
@@ -63,7 +73,7 @@ export function XrayApp() {
     setCreating(true);
     setError(null);
     try {
-      const res = await xrayApi.addUser(name, newQuota, newSpeed, newDays);
+      const res = await xrayApi.addUser(name, newQuota, newSpeed, newDays, newMaxConn);
       if (res.ok) {
         const token = res.user.public_token;
         const subUrl = token
@@ -74,6 +84,7 @@ export function XrayApp() {
         setNewQuota(0);
         setNewSpeed(0);
         setNewDays(0);
+        setNewMaxConn(0);
         await load();
       } else {
         setError(res.error ?? "create failed");
@@ -132,7 +143,37 @@ export function XrayApp() {
     setTimeout(() => setCopied(null), 1500);
   };
 
-  if (loading) {
+  
+  const openEdit = (u: XrayUser) => {
+    setEditingUser(u);
+    setEditForm({
+      quota_gb: u.quota_gb,
+      speed_mbps: u.speed_mbps,
+      duration_days: u.duration_days || 0,
+      max_connections: u.max_connections,
+      enabled: u.enabled,
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editingUser) return;
+    setEditSaving(true);
+    try {
+      const res = await xrayApi.updateUser(editingUser.name, editForm);
+      if (res.ok) {
+        setEditingUser(null);
+        await load();
+      } else {
+        alert("خطا: " + (res.error ?? "unknown"));
+      }
+    } catch (e) {
+      alert("خطا: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+if (loading) {
     return (
       <div className="xray-app">
         <div className="xray-loading">در حال بارگذاری…</div>
@@ -236,6 +277,18 @@ export function XrayApp() {
               disabled={creating}
             />
           </div>
+
+          <div className="xray-form-field">
+            <label>حداکثر دستگاه (0=بی‌نهایت)</label>
+            <input
+              type="number"
+              placeholder="0 = بی‌نهایت"
+              value={newMaxConn || ""}
+              onChange={(e) => setNewMaxConn(parseInt(e.target.value) || 0)}
+              min={0}
+              disabled={creating}
+            />
+          </div>
         </div>
         <button
           className="xray-create-btn"
@@ -332,7 +385,16 @@ export function XrayApp() {
                           {u.quota_gb > 0 ? percent.toFixed(1) + "%" : "—"}
                         </span>
                       </div>
-                    </div>
+
+                      <div className="xray-detail">
+                        <span className="xray-detail-icon">📱</span>
+                        <span>
+                          {u.max_connections > 0 
+                            ? "حداکثر " + u.max_connections + " دستگاه"
+                            : "بی‌نهایت دستگاه"}
+                        </span>
+                      </div>
+                                        </div>
                   </div>
 
                   <div className="xray-user-actions-vertical">
@@ -341,6 +403,14 @@ export function XrayApp() {
                       onClick={() => showLink(u)}
                     >
                       دریافت
+                    </button>
+
+                    <button
+                      className="xray-action-btn xray-action-edit"
+                      onClick={() => openEdit(u)}
+                      title="ویرایش"
+                    >
+                      ویرایش
                     </button>
                     <button
                       className="xray-action-btn xray-action-danger"
@@ -432,6 +502,92 @@ export function XrayApp() {
                   QR Code
                 </a>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingUser && (
+        <div className="xray-modal-backdrop" onClick={() => setEditingUser(null)}>
+          <div className="xray-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="xray-modal-header">
+              <h3>ویرایش کاربر</h3>
+              <div className="xray-modal-username">{editingUser.name}</div>
+              <button
+                className="xray-modal-close"
+                onClick={() => setEditingUser(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="shop-form">
+              <label>
+                حجم (GB)
+                <input
+                  type="number"
+                  value={editForm.quota_gb}
+                  onChange={(e) => setEditForm({ ...editForm, quota_gb: parseInt(e.target.value) || 0 })}
+                  min={0}
+                />
+              </label>
+
+              <label>
+                سرعت (Mbps)
+                <input
+                  type="number"
+                  value={editForm.speed_mbps}
+                  onChange={(e) => setEditForm({ ...editForm, speed_mbps: parseInt(e.target.value) || 0 })}
+                  min={0}
+                />
+              </label>
+
+              <label>
+                مدت (روز)
+                <input
+                  type="number"
+                  value={editForm.duration_days}
+                  onChange={(e) => setEditForm({ ...editForm, duration_days: parseInt(e.target.value) || 0 })}
+                  min={0}
+                />
+              </label>
+
+              <label>
+                حداکثر دستگاه
+                <input
+                  type="number"
+                  value={editForm.max_connections}
+                  onChange={(e) => setEditForm({ ...editForm, max_connections: parseInt(e.target.value) || 0 })}
+                  min={0}
+                />
+              </label>
+
+              <label style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={editForm.enabled}
+                  onChange={(e) => setEditForm({ ...editForm, enabled: e.target.checked })}
+                  style={{ width: 18, height: 18 }}
+                />
+                <span>فعال</span>
+              </label>
+            </div>
+
+            <div className="xray-modal-actions">
+              <button
+                className="xray-modal-btn xray-modal-btn-primary"
+                onClick={saveEdit}
+                disabled={editSaving}
+              >
+                {editSaving ? "در حال ذخیره..." : "ذخیره تغییرات"}
+              </button>
+              <button
+                className="xray-modal-btn xray-modal-btn-secondary"
+                onClick={() => setEditingUser(null)}
+              >
+                لغو
+              </button>
             </div>
           </div>
         </div>
