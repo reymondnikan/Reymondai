@@ -1,0 +1,1 @@
+ALTER TABLE xray_users ADD COLUMN node_id TEXT DEFAULT 'hetzner-nbg1-01';

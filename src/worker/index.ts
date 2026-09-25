@@ -15,6 +15,7 @@ import { nodeApiRoutes } from "./routes/node-api";
 import { xrayRoutes } from "./routes/xray";
 import { botWebhookRoutes } from "./routes/bot-webhook";
 import { shopRoutes } from "./routes/shop";
+import { nodesRoutes } from "./routes/nodes";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
 
@@ -50,6 +51,7 @@ app.route("/api/telegram", telegramRoutes);
 app.route("/api/nodes", nodeApiRoutes);
 app.route("/api/xray", xrayRoutes);
 app.route("/api/shop", shopRoutes);
+app.route("/api/nodes-list", nodesRoutes);
 
 app.get("/api", (c) => c.json({ app: c.env.APP_NAME ?? "Raymond", version: "0.5.0" }));
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));

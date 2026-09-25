@@ -6,6 +6,7 @@ import { SettingsApp } from "./settings/SettingsApp";
 import { NodesApp } from "./nodes/NodesApp";
 import { XrayApp } from "./xray/XrayApp";
 import { ShopApp } from "./shop/ShopApp";
+import { NodesManagerApp } from "./nodes-manager/NodesManagerApp";
 
 export function registerApps(): void {
   appRegistry.register({
@@ -24,6 +25,15 @@ export function registerApps(): void {
     component: ShopApp,
     order: 30,
   });
+  appRegistry.register({
+    id: "nodes-manager",
+    name: "سرورها",
+    icon: "\u{1F310}",
+    description: "Multi-node servers",
+    component: NodesManagerApp,
+    order: 35,
+  });
+
 
 
   appRegistry.register({
