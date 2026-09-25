@@ -643,6 +643,46 @@ async function handleCallback(
       return;
     }
 
+    if (data.startsWith("page_")) {
+      const orderId = data.slice("page_".length);
+      const order = await queryFirst<{
+        id: string;
+        product_name: string;
+        xray_sub_token: string;
+      }>(
+        env.DB,
+        "SELECT id, product_name, xray_sub_token FROM orders WHERE id = ? AND user_telegram_id = ? LIMIT 1",
+        orderId,
+        String(from.id)
+      );
+      if (!order || !order.xray_sub_token) {
+        await bot.answerCallbackQuery(cb.id, "اکانت پیدا نشد", true);
+        return;
+      }
+
+      const pageUrl = "https://raymond.myraymond2025.workers.dev/u/" + order.xray_sub_token;
+
+      const text =
+        "📱 <b>صفحه اکانت شما</b>\n\n" +
+        "📦 " + escapeHtml(order.product_name) + "\n\n" +
+        "🔗 " + pageUrl + "\n\n" +
+        "👆 این لینک رو باز کن تا:\n" +
+        "• مصرف و باقی‌مانده رو ببینی\n" +
+        "• روزهای باقی‌مانده رو چک کنی\n" +
+        "• QR و لینک اتصال رو بگیری";
+
+      await bot.sendMessage(chatId, text, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔓 باز کردن صفحه", url: pageUrl }],
+            [{ text: "« بازگشت", callback_data: "my_accounts" }],
+          ],
+        },
+      });
+      await bot.answerCallbackQuery(cb.id);
+      return;
+    }
+
     if (data.startsWith("qr_")) {
       const orderId = data.slice("qr_".length);
       const order = await queryFirst<{

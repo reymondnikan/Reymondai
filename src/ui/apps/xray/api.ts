@@ -84,6 +84,11 @@ export const xrayApi = {
     req<{ ok: boolean; link: string }>(
       "/users/" + encodeURIComponent(name) + "/link"
     ),
+  
+  getUserPageUrl: (name: string) =>
+    req<{ ok: boolean; url: string; token: string }>(
+      "/users/" + encodeURIComponent(name) + "/page-url"
+    ),
   syncStats: () =>
     req<{ ok: boolean; updated: number; users: number }>("/sync-stats", {
       method: "POST",

@@ -409,3 +409,20 @@ xrayRoutes.get("/public/usage/:token", async (c) => {
   });
 });
 
+// ============================================================
+// Get user page URL by token
+// ============================================================
+xrayRoutes.get("/users/:name/page-url", async (c) => {
+  const name = c.req.param("name");
+  const user = await queryFirst<{ public_token: string }>(
+    c.env.DB,
+    "SELECT public_token FROM xray_users WHERE name = ? LIMIT 1",
+    name
+  );
+  if (!user || !user.public_token) {
+    return c.json({ ok: false, error: "user not found or no token" }, 404);
+  }
+  const url = new URL(c.req.url);
+  const pageUrl = url.origin + "/u/" + user.public_token;
+  return c.json({ ok: true, url: pageUrl, token: user.public_token });
+});

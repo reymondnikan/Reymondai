@@ -2822,3 +2822,20 @@ input, textarea {
   font-size: 12px;
   margin-top: 20px;
 }
+
+.xray-action-page {
+  background: transparent;
+  border: 1px solid var(--info);
+  color: var(--info);
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.xray-action-page:hover {
+  background: var(--info);
+  color: white;
+}

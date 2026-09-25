@@ -106,7 +106,21 @@ export function XrayApp() {
     }
   };
 
-  const showLink = async (u: XrayUser) => {
+  
+  const copyUserPageUrl = async (name: string) => {
+    try {
+      const res = await xrayApi.getUserPageUrl(name);
+      if (res.ok && res.url) {
+        await navigator.clipboard.writeText(res.url);
+        setCopied("page_" + name);
+        setTimeout(() => setCopied(null), 1500);
+      }
+    } catch (e) {
+      alert("خطا: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+const showLink = async (u: XrayUser) => {
     try {
       const res = await xrayApi.getLink(u.name);
       if (res.ok) {
@@ -411,6 +425,13 @@ if (loading) {
                       title="ویرایش"
                     >
                       ویرایش
+                    </button>
+                    <button
+                      className="xray-action-btn xray-action-page"
+                      onClick={() => copyUserPageUrl(u.name)}
+                      title="کپی لینک صفحه کاربر"
+                    >
+                      {copied === "page_" + u.name ? "✓" : "📱 صفحه"}
                     </button>
                     <button
                       className="xray-action-btn xray-action-danger"
