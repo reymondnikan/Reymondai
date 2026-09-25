@@ -17,6 +17,7 @@ import { botWebhookRoutes } from "./routes/bot-webhook";
 import { shopRoutes } from "./routes/shop";
 import { nodesCrudRoutes } from "./routes/nodes-crud";
 import { botButtonsRoutes } from "./routes/bot-buttons";
+import { userPageRoutes } from "./routes/user-page";
 import { nodesRoutes } from "./routes/nodes";
 import { initRuntime } from "./runtime";
 import { requireAuth } from "./middleware/require-auth";
@@ -60,6 +61,9 @@ app.route("/api/nodes-list", nodesRoutes);
 
 app.get("/api", (c) => c.json({ app: c.env.APP_NAME ?? "Raymond", version: "0.5.0" }));
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+// Public user page (must come BEFORE the SPA fallback)
+app.route("/u", userPageRoutes);
+
 app.all("*", async (c) => c.env.ASSETS.fetch(c.req.raw));
 
 // ===== BOOTSTRAP =====
